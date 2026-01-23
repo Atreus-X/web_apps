@@ -199,20 +199,21 @@ const getAvatarColor = (name: string) => {
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
-  let style = 'bg-gray-100 text-gray-600 border-gray-200';
-  
-  const s = status.toUpperCase();
-  if (['APPROVED', 'COMPLETE', 'DONE'].includes(s)) {
-    style = 'bg-green-100 text-green-700 border-green-200';
-  } else if (['CANCELLED'].includes(s)) {
-    style = 'bg-red-100 text-red-700 border-red-200 line-through';
-  } else if (['IN-PROGRESS', 'ON-GOING'].includes(s)) {
-    style = 'bg-blue-100 text-blue-700 border-blue-200';
-  } else if (['DEFERRED', 'HIDE', 'UNKNOWN', 'OTHER', 'N/A'].includes(s)) {
-    style = 'bg-slate-100 text-slate-500 border-slate-200';
-  } else if (s.startsWith('WAIT') || s === 'NEEDS HOURS' || s === 'QUOTE-RECVD' || s === 'WINVOICE-C') {
-    style = 'bg-amber-100 text-amber-700 border-amber-200';
-  }
+  const s = (status || '').toUpperCase();
+  let style = 'bg-slate-100 text-slate-600 border-slate-200';
+
+  if (s === 'APPROVED') style = 'bg-teal-100 text-teal-700 border-teal-200';
+  else if (s === 'CANCELLED') style = 'bg-red-100 text-red-700 border-red-200 line-through';
+  else if (['COMPLETE', 'DONE'].includes(s)) style = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  else if (s === 'DEFERRED') style = 'bg-zinc-100 text-zinc-600 border-zinc-200';
+  else if (['IN-PROGRESS', 'ON-GOING'].includes(s)) style = 'bg-blue-100 text-blue-700 border-blue-200';
+  else if (s === 'QUOTE-RECVD' || s === 'WAIT-RECV-QUOTE') style = 'bg-indigo-100 text-indigo-700 border-indigo-200';
+  else if (s === 'WINVOICE-C') style = 'bg-pink-100 text-pink-700 border-pink-200';
+  else if (s === 'NEEDS HOURS') style = 'bg-orange-100 text-orange-700 border-orange-200';
+  else if (s === 'WAIT-APPROVAL') style = 'bg-purple-100 text-purple-700 border-purple-200';
+  else if (['WAIT-ORDER-PARTS', 'WAIT-RECV-PARTS', 'WAIT-PARTS-INSTALL'].includes(s)) style = 'bg-amber-100 text-amber-700 border-amber-200';
+  else if (s === 'WAIT-PROJ-START') style = 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  else if (s === 'WAIT-PROP-COND') style = 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200';
 
   return (
     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${style} whitespace-nowrap`}>
