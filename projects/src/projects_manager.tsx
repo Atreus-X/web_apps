@@ -38,6 +38,24 @@ import PocketBase from 'pocketbase';
 
 // --- Configuration ---
 const PB_URL = import.meta.env.VITE_PB_URL;
+
+const CUSTOM_STATE_SORT_ORDER = [
+  "Proposed",
+  "Approved",
+  "In-Progress",
+  "Waiting for Quotations",
+  "Quote Received",
+  "Sent PAF to contractor",
+  "Sent to Storeroom",
+  "Paperwork submitted",
+  "Waiting for Parts",
+  "Waiting for Project Start",
+  "Waiting for Invoice",
+  "Complete",
+  "Cancelled",
+  "Deferred"
+];
+
 // --- Types ---
 
 type ProjectState = 
@@ -511,6 +529,19 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
     }
 
     data.sort((a, b) => {
+      if (sortField === 'state') {
+        const getRank = (s: string) => {
+            const idx = CUSTOM_STATE_SORT_ORDER.indexOf(s);
+            return idx === -1 ? 999 : idx;
+        };
+        const rankA = getRank(a.state);
+        const rankB = getRank(b.state);
+        
+        if (rankA < rankB) return sortDir === 'asc' ? -1 : 1;
+        if (rankA > rankB) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      }
+
       const valA = a[sortField];
       const valB = b[sortField];
       if (Array.isArray(valA)) return 0; 
