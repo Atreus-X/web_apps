@@ -114,6 +114,13 @@ const STATUS_OPTIONS = [
   "WINVOICE-C"
 ];
 
+const CUSTOM_STATUS_SORT_ORDER = [
+  "UNKNOWN", "APPROVED", "IN-PROGRESS", "WAIT-APPROVAL", "WAIT-ORDER-PARTS", 
+  "WAIT-RECV-PARTS", "WAIT-RECV-QUOTE", "WAIT-PARTS-INSTALL", "WAIT-PROJ-START", 
+  "WAIT-PROP-COND", "QUOTE-RECVD", "DEFERRED", "ON-GOING", "OTHER", 
+  "NEEDS HOURS", "WINVOICE-C", "DONE", "COMPLETE"
+];
+
 const WO_TYPE_OPTIONS = [
   "CM", "DS", "N/A", "PR", "PR (UE)", "SERV", "UP"
 ];
@@ -731,6 +738,19 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
     }
 
     data.sort((a, b) => {
+      if (sortField === 'status') {
+        const getRank = (s: string) => {
+            const idx = CUSTOM_STATUS_SORT_ORDER.indexOf(s?.toUpperCase());
+            return idx === -1 ? 999 : idx;
+        };
+        const rankA = getRank(a.status);
+        const rankB = getRank(b.status);
+        
+        if (rankA < rankB) return sortDir === 'asc' ? -1 : 1;
+        if (rankA > rankB) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      }
+
       const valA = a[sortField];
       const valB = b[sortField];
       if (valA < valB) return sortDir === 'asc' ? -1 : 1;
