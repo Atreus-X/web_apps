@@ -404,8 +404,8 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [buildings, setBuildings] = useState<BuildingInfo[]>([]);
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState<keyof WorkOrder>('date_reported');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<keyof WorkOrder>('status');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showCompleted, setShowCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
