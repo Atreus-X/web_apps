@@ -748,6 +748,12 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
         
         if (rankA < rankB) return sortDir === 'asc' ? -1 : 1;
         if (rankA > rankB) return sortDir === 'asc' ? 1 : -1;
+        
+        // Secondary sort: date_reported descending
+        const dateA = a.date_reported || '';
+        const dateB = b.date_reported || '';
+        if (dateA < dateB) return 1;
+        if (dateA > dateB) return -1;
         return 0;
       }
 
