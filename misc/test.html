@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            text-align: center;
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1c1e21;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 1.2em;
+            color: #606770;
+        }
+        .timestamp {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #90949c;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Success! ✅</h1>
+        <p>If you can see this page, your web server is working correctly.</p>
+        <p class="timestamp" id="datetime"></p>
+    </div>
+
+    <script>
+        document.getElementById('datetime').textContent = 'Page loaded on: ' + new Date().toLocaleString();
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BACnet Instance Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .config-bar { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 20px; background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #dee2e6; margin-bottom: 20px; }
+        label { display: block; font-weight: bold; font-size: 0.85rem; margin-bottom: 5px; color: #555; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #2c3e50; color: white; padding: 12px; text-align: left; font-size: 0.85rem; }
+        td { border-bottom: 1px solid #e9ecef; padding: 6px; position: relative; }
+        input, select { padding: 8px; border: 1px solid #ced4da; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        
+        /* Tooltip Styles */
+        .instance-val { font-family: monospace; font-weight: bold; color: #007bff; font-size: 1.1rem; cursor: help; display: inline-block; padding: 4px; }
+        .instance-val:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            bottom: 110%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-family: sans-serif;
+        }
+
+        .invalid { color: #dc3545 !important; background: #fff0f0; border: 1px solid #dc3545; }
+        .toolbar { margin-top: 20px; display: flex; gap: 10px; border-top: 1px solid #eee; padding-top: 20px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem; }
+        .btn-blue { background: #007bff; color: white; }
+        .btn-green { background: #28a745; color: white; }
+        .btn-outline { border: 1px solid #ccc; background: white; }
+        .import-desc { font-size: 0.75rem; color: #666; margin-top: 8px; padding: 8px; border: 1px solid #e2e2e2; border-radius: 4px; background: #fff; }
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>BACnet Instance Manager</h2>
+    
+    <div class="config-bar">
+        <div>
+            <label>Select Building</label>
+            <select id="bldgSelect"><option>Loading...</option></select>
+        </div>
+        <div>
+            <label>Building Code</label>
+            <input type="text" id="bldgCode" readonly style="background-color: #e9ecef;">
+        </div>
+        <div>
+            <label>Global MSTP Trunk #</label>
+            <input type="number" id="globalTrunk" value="1" min="0" oninput="updateAll()">
+        </div>
+        <div>
+            <label>Data Management</label>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn btn-green" onclick="document.getElementById('fileInput').click()">Import CSV</button>
+                <button class="btn btn-outline" onclick="exportToCSV()">Export CSV</button>
+                <input type="file" id="fileInput" accept=".csv" onchange="handleImport(this)">
+            </div>
+            <div class="import-desc">
+                Headers: <code>Device Type</code>, <code>Device Name</code>, <code>Floor</code>
+            </div>
+        </div>
+    </div>
+
+    <table id="mainTable">
+        <thead>
+            <tr>
+                <th style="width: 160px;">Device Type</th>
+                <th>Device Name</th>
+                <th style="width: 120px;">Physical Floor</th>
+                <th style="width: 80px;">MAC</th>
+                <th style="width: 220px;">BACnet Instance (Hover for Logic)</th>
+                <th style="width: 100px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <div class="toolbar">
+        <button class="btn btn-blue" onclick="addRow()">+ Add Device</button>
+        <button class="btn btn-outline" onclick="bulkAdd(50)">+ Add 50 Rows</button>
+        <button class="btn btn-outline" onclick="clearTable()" style="color: red;">Clear All</button>
+    </div>
+</div>
+
+<script>
+    const bSelect = document.getElementById('bldgSelect');
+    const bCode = document.getElementById('bldgCode');
+    const gTrunk = document.getElementById('globalTrunk');
+    const tbody = document.getElementById('tableBody');
+
+    Papa.parse("buildings.csv", {
+        download: true, header: true, skipEmptyLines: true,
+        complete: function(results) {
+            bSelect.innerHTML = '<option value="">-- Choose Building --</option>';
+            results.data.forEach(row => {
+                if(row.CMUBldgCode) {
+                    let opt = document.createElement('option');
+                    opt.value = row.CMUBldgCode;
+                    opt.textContent = row['Building Name'];
+                    bSelect.appendChild(opt);
+                }
+            });
+            bulkAdd(50);
+        }
+    });
+
+    function getSortedFloorMap(uniqueFloors) {
+        const alphas = uniqueFloors.filter(f => /[A-Z]/i.test(f)).sort().reverse();
+        const numerics = uniqueFloors.filter(f => /^[0-9]+$/.test(f)).sort((a,b) => a - b);
+        const sequence = [...alphas, ...numerics];
+        const map = {};
+        sequence.forEach((floor, index) => { map[floor] = index; });
+        return map;
+    }
+
+    function updateAll() {
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        if (rows.length === 0) return;
+
+        const uniqueFloors = [...new Set(rows.map(r => r.querySelector('.r-floor').value.trim().toUpperCase()))].filter(f => f !== "");
+        const floorMap = getSortedFloorMap(uniqueFloors);
+
+        rows.forEach(row => {
+            const type = row.querySelector('.r-type').value;
+            const macIn = row.querySelector('.r-mac');
+            const floorVal = row.querySelector('.r-floor').value.trim().toUpperCase();
+            const display = row.querySelector('.instance-val');
+            
+            const bldg = bCode.value || "304";
+            const relFloor = floorMap[floorVal] !== undefined ? floorMap[floorVal] : 0;
+            const trunk = (type === 'ip') ? '0' : gTrunk.value;
+            const macStr = (type === 'router') ? '01' : macIn.value.padStart(2, '0');
+            
+            if (type === 'router') { macIn.value = 1; macIn.disabled = true; } 
+            else { macIn.disabled = false; }
+
+            const finalInstance = `${bldg}${relFloor}${trunk}${macStr}`;
+            display.innerText = finalInstance;
+            
+            // Tooltip Logic
+            const logic = `Bldg: ${bldg} | Rel Floor: ${relFloor} | Trunk: ${trunk} | MAC: ${macStr}`;
+            display.setAttribute('data-tooltip', logic);
+            
+            display.classList.toggle('invalid', parseInt(finalInstance) > 4194303);
+        });
+    }
+
+    function createRow(type = "mstp", name = "", floor = "1", mac = "") {
+        const tr = document.createElement('tr');
+        const dName = name || "VAV";
+        const dMac = mac !== "" ? mac : (tbody.children.length + 1);
+
+        tr.innerHTML = `
+            <td>
+                <select class="r-type" onchange="updateAll()">
+                    <option value="mstp" ${type==='mstp'?'selected':''}>MS/TP Device</option>
+                    <option value="router" ${type==='router'?'selected':''}>Router</option>
+                    <option value="ip" ${type==='ip'?'selected':''}>BACnet/IP</option>
+                </select>
+            </td>
+            <td><input type="text" class="r-name" value="${dName}"></td>
+            <td><input type="text" class="r-floor" value="${floor}" oninput="updateAll()"></td>
+            <td><input type="number" class="r-mac" value="${dMac}" oninput="updateAll()"></td>
+            <td><span class="instance-val" data-tooltip="">---</span></td>
+            <td style="display:flex; gap: 5px;">
+                <button title="Insert Below" onclick="insertAfter(this.closest('tr'))">➕</button>
+                <button title="Delete" onclick="this.closest('tr').remove(); updateAll();">❌</button>
+            </td>
+        `;
+        return tr;
+    }
+
+    function insertAfter(row) {
+        const newRow = createRow("mstp", "VAV", row.querySelector('.r-floor').value, 0);
+        row.parentNode.insertBefore(newRow, row.nextSibling);
+        updateAll();
+    }
+
+    function addRow() { tbody.appendChild(createRow()); updateAll(); }
+    function bulkAdd(n) { for(let i=0; i<n; i++) tbody.appendChild(createRow("mstp", "VAV", "1", "")); updateAll(); }
+    function clearTable() { tbody.innerHTML = ''; }
+    function handleImport(input) {
+        const file = input.files[0];
+        Papa.parse(file, {
+            header: true, skipEmptyLines: true,
+            complete: function(results) {
+                tbody.innerHTML = ''; 
+                results.data.forEach((row, i) => {
+                    const type = (row['Device Type'] || '').toLowerCase().includes('router') ? 'router' : 
+                                 (row['Device Type'] || '').toLowerCase().includes('ip') ? 'ip' : 'mstp';
+                    tbody.appendChild(createRow(type, row['Device Name'], row['Floor'], i + 1));
+                });
+                updateAll();
+            }
+        });
+        input.value = '';
+    }
+
+    function exportToCSV() {
+        let rows = [['Device Type', 'Device Name', 'Physical Floor', 'MAC', 'BACnet Instance']];
+        tbody.querySelectorAll('tr').forEach(tr => {
+            rows.push([
+                tr.querySelector('.r-type').value,
+                tr.querySelector('.r-name').value,
+                tr.querySelector('.r-floor').value,
+                tr.querySelector('.r-mac').value,
+                tr.querySelector('.instance-val').innerText
+            ]);
+        });
+        let csvString = rows.map(e => e.join(",")).join("\n");
+        let blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", "bacnet_schedule.csv");
+        link.click();
+    }
+
+    bSelect.addEventListener('change', () => { bCode.value = bSelect.value; updateAll(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC Node Analyzer</title>
+    <!-- Load Plotly for Charting -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- Load SheetJS for Excel Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Load PocketBase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pocketbase/0.21.1/pocketbase.umd.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body { background-color: #f8fafc; }
+        .chart-container { height: 700px; width: 100%; }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Analysis Tables */
+        .analysis-table th { background-color: #f3f4f6; padding: 8px; text-align: left; font-size: 0.85rem; color: #374151; }
+        .analysis-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 0.85rem; }
+        .badge-warn { background-color: #fef3c7; color: #92400e; padding: 2px 6px; rounded: 4px; font-size: 0.75rem; border-radius: 4px; }
+        .badge-error { background-color: #fee2e2; color: #b91c1c; padding: 2px 6px; rounded: 4px; font-size: 0.75rem; border-radius: 4px; }
+        .badge-ok { background-color: #d1fae5; color: #065f46; padding: 2px 6px; rounded: 4px; font-size: 0.75rem; border-radius: 4px; }
+        .badge-calib { background-color: #ffedd5; color: #c2410c; padding: 2px 6px; rounded: 4px; font-size: 0.75rem; border-radius: 4px; }
+        
+        /* Tree View Styles */
+        details > summary { list-style: none; cursor: pointer; transition: background-color 0.2s; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] > summary { background-color: #f3f4f6; }
+        .tree-arrow { transition: transform 0.2s; display: inline-block; }
+        details[open] > summary .tree-arrow { transform: rotate(90deg); }
+    </style>
+</head>
+<body class="p-6">
+
+<div class="max-w-7xl mx-auto bg-white rounded-lg shadow-lg p-6">
+    <!-- Header & Config -->
+    <div class="flex justify-between items-center mb-6 border-b pb-4">
+        <h2 class="text-2xl font-bold text-gray-800">HVAC Node Data Analyzer</h2>
+        <div class="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-full border border-gray-200">
+            <span class="text-xs font-semibold text-gray-600">Server Status:</span>
+            <div class="text-xs text-gray-500 font-bold font-mono" id="serverStatus">Disconnected</div>
+        </div>
+    </div>
+    
+    <!-- Controls Area -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 items-start">
+        
+        <!-- Column 1: Upload New -->
+        <div id="localControls" class="block w-full bg-blue-50 p-4 rounded-lg border border-blue-100">
+            <label class="block text-sm font-bold text-blue-800 mb-2">1. Upload New File</label>
+            <div class="flex flex-col gap-2">
+                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" 
+                       class="block w-full text-sm text-gray-500
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-full file:border-0
+                              file:text-sm file:font-semibold
+                              file:bg-white file:text-blue-700
+                              hover:file:bg-blue-100 cursor-pointer"/>
+            </div>
+            <!-- Date Range Display for Local -->
+            <div id="localFileInfo" class="mt-2 text-xs text-blue-600 font-mono min-h-[1rem]"></div>
+        </div>
+
+        <!-- Column 2: Select Existing -->
+        <div id="serverControls" class="block w-full bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <label class="block text-sm font-bold text-gray-700 mb-2">2. OR Select Existing File</label>
+            <div class="flex gap-2">
+                <select id="serverFileSelect" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white text-sm">
+                    <option value="">Connect to load files...</option>
+                </select>
+                <button id="btnLoadServer" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors shadow-sm">
+                    Reload
+                </button>
+            </div>
+            <!-- Date Range Display for Server -->
+            <div id="serverFileInfo" class="mt-2 text-xs text-gray-600 font-mono min-h-[1rem]"></div>
+        </div>
+
+        <!-- Column 3: Node Selector & Status -->
+        <div class="block w-full p-4">
+            <label class="block text-sm font-bold text-gray-700 mb-2">3. Select Room / Node</label>
+            <select id="nodeSelect" disabled 
+                    class="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:text-gray-400 text-sm mb-4">
+                <option value="">Waiting for data...</option>
+            </select>
+
+            <!-- Irregular Schedule Toggle -->
+            <div class="mb-4 flex items-center">
+                <input type="checkbox" id="chkShowIrregular" checked class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                <label for="chkShowIrregular" class="ml-2 text-sm text-gray-700 cursor-pointer select-none">Flag Schedule Irregularities</label>
+            </div>
+
+            <!-- Status Indicator -->
+            <div id="statusArea" class="hidden">
+                <div class="flex items-center text-blue-600 font-medium p-2 bg-blue-50 rounded border border-blue-100 text-sm">
+                    <div class="spinner"></div>
+                    <span id="statusText">Processing...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Message Display -->
+    <div id="errorMsg" class="hidden p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg border border-red-200" role="alert"></div>
+
+    <!-- Global Summary Area -->
+    <div id="globalSummarySection" class="hidden mb-6 border rounded-lg overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gray-50 p-4 border-b flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors" onclick="toggleGlobalDetails()">
+            <div class="flex items-center gap-3">
+                <!-- Toggle Indicator -->
+                <div id="globalToggleIcon" class="text-gray-400 font-mono text-xl font-bold w-6 h-6 flex items-center justify-center border border-gray-200 rounded bg-white shadow-sm">+</div>
+                
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <span id="summaryIcon">📊</span> Global System Health Report
+                    </h3>
+                    <div class="text-xs text-gray-500 mt-1" id="summarySubtext">Scanning...</div>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-2xl font-bold" id="issuesCount">0</span>
+                <div class="text-xs text-gray-500 uppercase tracking-wide">Nodes with Issues</div>
+            </div>
+        </div>
+        
+        <!-- Collapsible Container -->
+        <div id="globalSummaryContainer" class="hidden border-t border-gray-200">
+            <div id="globalSummaryContent" class="bg-white max-h-96 overflow-y-auto p-4 space-y-2">
+                <!-- Tree items injected here -->
+            </div>
+            <!-- Global Pagination Footer -->
+            <div id="globalPagination" class="bg-gray-50 border-t border-gray-200 p-2 flex justify-center items-center gap-2 text-xs">
+                <button id="btnFirstGlobal" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">First</button>
+                <button id="btnPrevGlobal" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">Prev</button>
+                
+                <span class="text-gray-600 flex items-center gap-1 mx-2">
+                    Page 
+                    <select id="globalPageSelect" class="border border-gray-300 rounded py-0.5 px-1 bg-white text-xs"></select>
+                    of <span id="globalTotalPages">1</span>
+                </span>
+
+                <button id="btnNextGlobal" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">Next</button>
+                <button id="btnLastGlobal" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">Last</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Area -->
+    <div id="chart" class="chart-container border border-gray-100 rounded mb-8 shadow-sm"></div>
+
+    <!-- Analysis Results Area -->
+    <div id="analysisSection" class="hidden border-t border-gray-200 pt-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Analysis Report</h3>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left: Setpoint & Schedule -->
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2 border-b pb-1">Setpoint Changes & Schedule</h4>
+                <div class="bg-white rounded border border-gray-200 overflow-hidden max-h-96 overflow-y-auto shadow-sm">
+                    <table class="w-full analysis-table">
+                        <thead>
+                            <tr>
+                                <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Time</th>
+                                <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Heat Below</th>
+                                <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Cool Above</th>
+                                <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tblSetpoints"></tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">* Highlighted rows indicate irregular schedule changes.</p>
+            </div>
+
+            <!-- Right: Anomalies -->
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2 border-b pb-1">System Anomalies (Temp/PSI)</h4>
+                <div class="bg-white rounded border border-gray-200 overflow-hidden shadow-sm flex flex-col h-96">
+                    <div class="flex-grow overflow-y-auto">
+                        <table class="w-full analysis-table">
+                            <thead>
+                                <tr>
+                                    <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Time</th>
+                                    <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Zone Temp</th>
+                                    <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">PSI</th>
+                                    <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Type</th>
+                                    <th class="sticky top-0 z-10 bg-gray-100 shadow-sm">Diagnosis</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblAnomalies"></tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Footer -->
+                    <div id="anomalyPagination" class="bg-gray-50 border-t border-gray-200 p-2 flex justify-center items-center gap-2 text-xs">
+                        <button id="btnFirstPage" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">First</button>
+                        <button id="btnPrevPage" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">Prev</button>
+                        
+                        <span class="text-gray-600 flex items-center gap-1 mx-2">
+                            Page 
+                            <select id="pageSelect" class="border border-gray-300 rounded py-0.5 px-1 bg-white text-xs"></select>
+                            of <span id="totalPagesDisplay">1</span>
+                        </span>
+
+                        <button id="btnNextPage" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">Next</button>
+                        <button id="btnLastPage" class="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium transition-colors">Last</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diagnostic Panel -->
+    <div class="mt-8 border border-gray-300 rounded overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gray-100 p-4 border-b flex justify-between items-center cursor-pointer hover:bg-gray-200 transition-colors" onclick="toggleDiagnosticLog()">
+            <div class="flex items-center gap-3">
+                <div id="diagToggleIcon" class="text-gray-400 font-mono text-xl font-bold w-6 h-6 flex items-center justify-center border border-gray-200 rounded bg-white shadow-sm">+</div>
+                <h3 class="font-bold text-gray-700">Diagnostic Log</h3>
+            </div>
+            <button onclick="event.stopPropagation(); document.getElementById('diagnosticLog').textContent = ''" class="text-xs text-blue-500 hover:underline">Clear Log</button>
+        </div>
+        
+        <!-- Content -->
+        <div id="diagnosticLogContent" class="hidden bg-gray-50 p-4 border-t border-gray-200">
+             <div id="diagnosticLog" class="text-xs font-mono text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Global State ---
+    let pb = null;
+    let rawData = [];
+    let headers = [];
+    let weatherData = null; // Store weather data
+    let currentFilteredData = []; 
+    // Pagination State (Single Node)
+    let currentAnomaliesList = [];
+    let currentAnomalyPage = 1;
+    const ITEMS_PER_PAGE = 50;
+    
+    // Pagination State (Global Report)
+    let currentGlobalNodesList = [];
+    let currentGlobalPage = 1;
+    const GLOBAL_ITEMS_PER_PAGE = 20;
+    
+    // Pagination State (Global Report - Inner Node Issues)
+    let globalNodePaginationState = {}; 
+    const NODE_ISSUES_PER_PAGE = 10;
+
+    // --- VAV to Room Mapping ---
+    const vavMapping = {
+        "V-3-C-24": "Rm. 3201",
+        "V-3-C-25": "Rm. 3203",
+        "V-3-C-26": "Rm. 3205",
+        "V-3-C-27": "Rm. 3206",
+        "V-3-C-28": "Rm. 3202/NW Corridor",
+        "V-3-C-29": "Rm. 3002",
+        "V-3-C-30": "Rm. 3220/SE Corridor",
+        "V-3-C-31": "Rm. 3218",
+        "V-3-C-32": "Rm. 3217",
+        "V-3-C-33": "Rm. 3216/E Corridor",
+        "V-3-C-34": "Rm. 3208 West",
+        "V-3-C-35": "Rm. 3208 East/NE Corridor",
+        "V-3-C-36": "Rm. 3215",
+        "V-3-C-37": "Rm. 3213",
+        "V-3-C-38": "Rm. 3211",
+        "V-3-C-39": "Rm. 3209",
+        "V-3-C-40": "Rm. 3207",
+        "V-3-C-42": "Rm. 3000",
+        "V-4-C-1": "Rm. 4700 Corridor Gates",
+        "V-4-C-2": "Rm. 4217",
+        "V-4-C-3": "Rm. 4215",
+        "V-4-C-4": "Rm. 4213",
+        "V-4-C-5": "Rm. 4211",
+        "V-4-C-6": "Rm. 4208-Right",
+        "V-4-C-7": "Rm. 4222",
+        "V-4-C-8": "Rm. 4221",
+        "V-4-C-9": "Rm. 4223",
+        "V-4-C-10": "Rm. 4224/S Corridor",
+        "V-4-C-12": "Rm. 4209",
+        "V-4-C-13": "Rm. 4207",
+        "V-4-C-14": "Rm. 4208-Left",
+        "V-4-C-15": "Rm. 4225",
+        "V-4-C-16": "Rm. 4227",
+        "V-4-C-17": "Rm. 4229",
+        "V-4-C-18": "Rm. 4231",
+        "V-4-C-19": "Rm. 4200 South",
+        "V-4-C-20": "Rm. 4228",
+        "V-4-C-21": "Rm. 4228A",
+        "V-4-C-22": "Rm. 4228B",
+        "V-4-C-23": "Rm. 4201",
+        "V-4-C-24": "Rm. 4200 North"
+    };
+
+    // --- DOM Elements ---
+    const elements = {
+        fileInput: document.getElementById('fileInput'),
+        nodeSelect: document.getElementById('nodeSelect'),
+        chkShowIrregular: document.getElementById('chkShowIrregular'),
+        analysisSection: document.getElementById('analysisSection'),
+        tblSetpoints: document.getElementById('tblSetpoints'),
+        tblAnomalies: document.getElementById('tblAnomalies'),
+        statusArea: document.getElementById('statusArea'),
+        statusText: document.getElementById('statusText'),
+        errorMsg: document.getElementById('errorMsg'),
+        diagLog: document.getElementById('diagnosticLog'),
+        // btnUploadCloud removed
+        serverFileSelect: document.getElementById('serverFileSelect'),
+        btnLoadServer: document.getElementById('btnLoadServer'),
+        // Controls are now just one view
+        serverStatus: document.getElementById('serverStatus'),
+        localFileInfo: document.getElementById('localFileInfo'),
+        serverFileInfo: document.getElementById('serverFileInfo'),
+        
+        // Global Summary Elements
+        globalSummarySection: document.getElementById('globalSummarySection'),
+        globalSummaryContainer: document.getElementById('globalSummaryContainer'),
+        globalSummaryContent: document.getElementById('globalSummaryContent'),
+        issuesCount: document.getElementById('issuesCount'),
+        summarySubtext: document.getElementById('summarySubtext'),
+        summaryIcon: document.getElementById('summaryIcon'),
+        // Global Pagination Controls
+        btnFirstGlobal: document.getElementById('btnFirstGlobal'),
+        btnPrevGlobal: document.getElementById('btnPrevGlobal'),
+        btnNextGlobal: document.getElementById('btnNextGlobal'),
+        btnLastGlobal: document.getElementById('btnLastGlobal'),
+        globalPageSelect: document.getElementById('globalPageSelect'),
+        globalTotalPages: document.getElementById('globalTotalPages'),
+
+        // Anomaly Pagination Controls
+        btnFirstPage: document.getElementById('btnFirstPage'),
+        btnPrevPage: document.getElementById('btnPrevPage'),
+        btnNextPage: document.getElementById('btnNextPage'),
+        btnLastPage: document.getElementById('btnLastPage'),
+        pageSelect: document.getElementById('pageSelect'),
+        totalPagesDisplay: document.getElementById('totalPagesDisplay')
+    };
+
+    // --- Helpers ---
+    window.log = (msg) => {
+        if (!elements.diagLog) return;
+        elements.diagLog.textContent += msg + "\n";
+        elements.diagLog.scrollTop = elements.diagLog.scrollHeight;
+    };
+    
+    window.showError = (msg) => {
+        elements.errorMsg.textContent = msg;
+        elements.errorMsg.classList.remove('hidden');
+    };
+
+    // Global toggle for summary
+    window.toggleGlobalDetails = () => {
+        const content = document.getElementById('globalSummaryContainer');
+        const icon = document.getElementById('globalToggleIcon');
+        
+        content.classList.toggle('hidden');
+        
+        if (content.classList.contains('hidden')) {
+            icon.innerText = "+";
+            icon.classList.remove('bg-gray-100', 'text-gray-600');
+            icon.classList.add('bg-white', 'text-gray-400');
+        } else {
+            icon.innerText = "−"; // Minus sign
+            icon.classList.remove('bg-white', 'text-gray-400');
+            icon.classList.add('bg-gray-100', 'text-gray-600');
+        }
+    };
+
+    // Toggle for Diagnostic Log
+    window.toggleDiagnosticLog = () => {
+        const content = document.getElementById('diagnosticLogContent');
+        const icon = document.getElementById('diagToggleIcon');
+        
+        content.classList.toggle('hidden');
+        
+        if (content.classList.contains('hidden')) {
+            icon.innerText = "+";
+            icon.classList.remove('bg-gray-100', 'text-gray-600');
+            icon.classList.add('bg-white', 'text-gray-400');
+        } else {
+            icon.innerText = "−"; 
+            icon.classList.remove('bg-white', 'text-gray-400');
+            icon.classList.add('bg-gray-100', 'text-gray-600');
+        }
+    };
+
+    // --- PocketBase Init ---
+    const PB_URL = "https://wchrestay-ubuntu.lan.local.cmu.edu/pocketbase";
+
+    function initPocketBase() {
+        try {
+            pb = new PocketBase(PB_URL);
+            pb.autoCancellation(false);
+            
+            elements.serverStatus.innerText = "Client Ready";
+            elements.serverStatus.className = "text-xs text-green-600 font-bold font-mono";
+            window.log(`PocketBase client initialized at ${PB_URL}`);
+            
+            // Always try to load server files
+            loadServerFiles();
+        } catch (e) {
+            elements.serverStatus.innerText = "Config Error";
+            elements.serverStatus.className = "text-xs text-red-600 font-bold font-mono";
+            window.log("Error initializing PocketBase: " + e.message);
+        }
+    }
+
+    initPocketBase();
+
+    // --- Logic: Local File Handling ---
+    elements.fileInput.addEventListener('change', handleLocalFile);
+    elements.nodeSelect.addEventListener('change', () => {
+        updateChart();
+        runAnalysis(); // Auto run analysis
+    });
+    
+    // Checkbox Listener - Re-run analyses
+    elements.chkShowIrregular.addEventListener('change', () => {
+        if (!elements.nodeSelect.disabled && elements.nodeSelect.value) {
+            runAnalysis();
+        }
+        runGlobalAnalysis();
+    });
+    
+    elements.btnLoadServer.addEventListener('click', loadFromPocketBase);
+    
+    // --- Pagination Listeners (Single Node) ---
+    const updateAnomalyPage = (newPage) => {
+        const totalPages = Math.ceil(currentAnomaliesList.length / ITEMS_PER_PAGE);
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentAnomalyPage = newPage;
+            renderAnomalyPage();
+        }
+    };
+
+    elements.btnFirstPage.addEventListener('click', () => updateAnomalyPage(1));
+    elements.btnLastPage.addEventListener('click', () => updateAnomalyPage(Math.ceil(currentAnomaliesList.length / ITEMS_PER_PAGE)));
+    elements.btnPrevPage.addEventListener('click', () => updateAnomalyPage(currentAnomalyPage - 1));
+    elements.btnNextPage.addEventListener('click', () => updateAnomalyPage(currentAnomalyPage + 1));
+    elements.pageSelect.addEventListener('change', (e) => updateAnomalyPage(parseInt(e.target.value)));
+
+    // --- Pagination Listeners (Global Report) ---
+    const updateGlobalPage = (newPage) => {
+        const totalPages = Math.ceil(currentGlobalNodesList.length / GLOBAL_ITEMS_PER_PAGE);
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentGlobalPage = newPage;
+            renderGlobalReportPage();
+        }
+    };
+
+    elements.btnFirstGlobal.addEventListener('click', () => updateGlobalPage(1));
+    elements.btnLastGlobal.addEventListener('click', () => updateGlobalPage(Math.ceil(currentGlobalNodesList.length / GLOBAL_ITEMS_PER_PAGE)));
+    elements.btnPrevGlobal.addEventListener('click', () => updateGlobalPage(currentGlobalPage - 1));
+    elements.btnNextGlobal.addEventListener('click', () => updateGlobalPage(currentGlobalPage + 1));
+    elements.globalPageSelect.addEventListener('change', (e) => updateGlobalPage(parseInt(e.target.value)));
+    
+    // --- Event Delegation for Inner Node Pagination (Global Report) ---
+    const globalSummaryContent = document.getElementById('globalSummaryContent');
+    
+    globalSummaryContent.addEventListener('click', (e) => {
+        if (e.target.classList.contains('node-pag-btn')) {
+            const nodeId = e.target.dataset.id;
+            const action = e.target.dataset.action;
+            const node = currentGlobalNodesList.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const totalPages = Math.ceil(node.anomalies.length / NODE_ISSUES_PER_PAGE);
+            let currentPage = globalNodePaginationState[nodeId] || 1;
+
+            if (action === 'first') currentPage = 1;
+            if (action === 'prev') currentPage = Math.max(1, currentPage - 1);
+            if (action === 'next') currentPage = Math.min(totalPages, currentPage + 1);
+            if (action === 'last') currentPage = totalPages;
+
+            globalNodePaginationState[nodeId] = currentPage;
+            
+            // Re-render just this node's fault section
+            const container = document.getElementById(`node-faults-${nodeId}`);
+            if (container) container.innerHTML = generateNodeFaultsUI(node);
+        }
+    });
+
+    globalSummaryContent.addEventListener('change', (e) => {
+        if (e.target.classList.contains('node-pag-select')) {
+            const nodeId = e.target.dataset.id;
+            const newPage = parseInt(e.target.value);
+            const node = currentGlobalNodesList.find(n => n.id === nodeId);
+            if (!node) return;
+
+            globalNodePaginationState[nodeId] = newPage;
+            const container = document.getElementById(`node-faults-${nodeId}`);
+            if (container) container.innerHTML = generateNodeFaultsUI(node);
+        }
+    });
+
+    // Auto-load on selection change
+    elements.serverFileSelect.addEventListener('change', () => {
+        if (elements.serverFileSelect.value) {
+            loadFromPocketBase();
+        }
+    });
+
+    function handleLocalFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        resetUI();
+        window.log(`Processing local file: ${file.name}`);
+        setStatus(true, "Reading file...");
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            setStatus(true, "Parsing Excel...");
+            setTimeout(() => processExcelData(e.target.result, file.name), 100);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function calculateDateRange() {
+        const colTime = findColumn(["Time", "Date", "Timestamp"]);
+        if (!colTime) return null;
+
+        let minTime = null;
+        let maxTime = null;
+
+        for(let i=0; i<rawData.length; i++) {
+            const t = parseDate(rawData[i][colTime]);
+            if (t && !isNaN(t.getTime())) {
+                if (minTime === null || t < minTime) minTime = t;
+                if (maxTime === null || t > maxTime) maxTime = t;
+            }
+        }
+
+        if (minTime && maxTime) {
+            return { min: minTime, max: maxTime, str: `Range: ${minTime.toLocaleString()} - ${maxTime.toLocaleString()}` };
+        }
+        return null;
+    }
+
+    // --- Weather Integration ---
+    async function fetchWeatherForRange(minDate, maxDate) {
+        // Format dates as YYYY-MM-DD
+        const formatDate = (d) => d.toISOString().split('T')[0];
+        const start = formatDate(minDate);
+        const end = formatDate(maxDate);
+        
+        const url = `https://archive-api.open-meteo.com/v1/archive?latitude=40.4406&longitude=-79.9959&start_date=${start}&end_date=${end}&hourly=temperature_2m&temperature_unit=fahrenheit&timezone=America%2FNew_York`;
+        
+        try {
+            window.log("Fetching weather data for Pittsburgh, PA...");
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error("Weather API failed");
+            const data = await resp.json();
+            
+            if (data && data.hourly) {
+                weatherData = {
+                    times: data.hourly.time,
+                    temps: data.hourly.temperature_2m
+                };
+                window.log("Weather data acquired.");
+                // If chart is already rendered, update it
+                if (elements.nodeSelect.value) updateChart();
+            }
+        } catch (e) {
+            console.error("Weather fetch failed", e);
+            window.log("Could not fetch weather data: " + e.message);
+        }
+    }
+
+    function processExcelData(buffer, filename) {
+        try {
+            const data = new Uint8Array(buffer);
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            let jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            
+            if (jsonData.length === 0) throw new Error("File is empty.");
+
+            // Clean Data
+            rawData = jsonData.map(row => {
+                const newRow = {};
+                Object.keys(row).forEach(key => {
+                    const cleanKey = key.replace(/\s+/g, ' ').trim();
+                    newRow[cleanKey] = row[key];
+                });
+                return newRow;
+            });
+
+            headers = Object.keys(rawData[0]);
+            window.log(`Parsed ${rawData.length} rows.`);
+            
+            // Update Date Range Info & Fetch Weather
+            const rangeInfo = calculateDateRange();
+            if (rangeInfo) {
+                elements.localFileInfo.innerText = rangeInfo.str;
+                fetchWeatherForRange(rangeInfo.min, rangeInfo.max);
+            }
+
+            populateDropdown();
+            runGlobalAnalysis(); // New: Global scan
+            
+            // Auto Upload to PB
+            uploadToPocketBase(filename);
+            
+        } catch (error) {
+            console.error(error);
+            window.showError("Error: " + error.message);
+            setStatus(false);
+        }
+    }
+
+    // --- Global Analysis Logic ---
+    function runGlobalAnalysis() {
+        const colNode = findColumn(["Node Name", "NodeID", "Device"]);
+        const colTime = findColumn(["Time", "Date", "Timestamp"]);
+        const colSetpoint = findColumn(["Setpoint"]); 
+        const colCool = findColumn(["Cool Above"]);
+        const colHeat = findColumn(["Heat Below"]);
+        const colZone = findColumn(["Zone Temp", "Temperature", "Temp"]);
+        const colPressure = findColumn(["Branch Pressure", "Pressure", "PSI"]);
+
+        if(!colNode || !colTime) return;
+
+        setStatus(true, "Running Global Analysis...");
+        elements.globalSummarySection.classList.remove('hidden');
+        // Reset view
+        elements.globalSummaryContent.innerHTML = '<div class="p-2 text-gray-500 italic">Scanning nodes...</div>';
+        
+        // Reset node pagination state on new analysis
+        globalNodePaginationState = {};
+
+        // Use setTimeout to allow UI to render the "Scanning" state
+        setTimeout(() => {
+            // Group data by node
+            const nodeGroups = {};
+            rawData.forEach(row => {
+                const node = row[colNode];
+                if(!node) return;
+                if(!nodeGroups[node]) nodeGroups[node] = [];
+                nodeGroups[node].push(row);
+            });
+
+            const nodesWithIssues = [];
+
+            // Analyze each node
+            for (const [nodeId, rows] of Object.entries(nodeGroups)) {
+                // Parse rows for this node
+                const nodeData = rows.map(r => ({
+                    time: parseDate(r[colTime]),
+                    temp: parseFloat(r[colZone]),
+                    psi: parseFloat(r[colPressure]),
+                    cool: parseFloat(r[colCool]),
+                    heat: parseFloat(r[colHeat])
+                })).filter(d => d.time && !isNaN(d.temp) && !isNaN(d.psi));
+
+                // 1. Run Mechanical Check (Returns list with types)
+                const anomalies = detectNodeAnomalies(nodeData);
+                
+                // 2. Run Schedule Check (Conditional)
+                const scheduleIssues = elements.chkShowIrregular.checked ? detectScheduleIrregularities(nodeData) : [];
+
+                // Separate anomalies for counting/display
+                const controlFaults = anomalies.filter(a => a.type === 'Control');
+                const calibrationFaults = anomalies.filter(a => a.type === 'Calibration');
+
+                if (anomalies.length > 0 || scheduleIssues.length > 0) {
+                    nodesWithIssues.push({
+                        id: nodeId,
+                        displayName: vavMapping[nodeId] ? `${vavMapping[nodeId]} (${nodeId})` : nodeId,
+                        anomalies: anomalies, // Keep full list for pagination logic
+                        controlCount: controlFaults.length,
+                        calibrationCount: calibrationFaults.length,
+                        scheduleIssues: scheduleIssues
+                    });
+                }
+            }
+
+            // Update UI
+            elements.issuesCount.innerText = nodesWithIssues.length;
+            elements.summarySubtext.innerText = `Scanned ${Object.keys(nodeGroups).length} nodes. Found issues in ${nodesWithIssues.length}.`;
+            
+            if (nodesWithIssues.length === 0) {
+                elements.globalSummarySection.className = "mb-6 border rounded-lg overflow-hidden bg-green-50 border-green-200";
+                elements.summaryIcon.innerText = "✅";
+                elements.globalSummaryContent.innerHTML = '<div class="p-4 text-green-700">System Healthy: No anomalies detected across all nodes.</div>';
+                // Hide pagination controls if empty
+                document.getElementById('globalPagination').classList.add('hidden');
+            } else {
+                elements.globalSummarySection.className = "mb-6 border rounded-lg overflow-hidden bg-red-50 border-red-200";
+                elements.summaryIcon.innerText = "⚠️";
+                document.getElementById('globalPagination').classList.remove('hidden');
+                
+                // Sort and Store
+                nodesWithIssues.sort((a,b) => a.displayName.localeCompare(b.displayName));
+                currentGlobalNodesList = nodesWithIssues;
+                currentGlobalPage = 1;
+                
+                // Render Page 1
+                renderGlobalReportPage();
+            }
+
+            setStatus(false);
+        }, 50);
+    }
+
+    function generateNodeFaultsUI(node) {
+        // Initialize page state if missing
+        if (!globalNodePaginationState[node.id]) globalNodePaginationState[node.id] = 1;
+        const currentPage = globalNodePaginationState[node.id];
+        
+        const totalPages = Math.ceil(node.anomalies.length / NODE_ISSUES_PER_PAGE);
+        const startIndex = (currentPage - 1) * NODE_ISSUES_PER_PAGE;
+        const endIndex = Math.min(startIndex + NODE_ISSUES_PER_PAGE, node.anomalies.length);
+        const showIssues = node.anomalies.slice(startIndex, endIndex);
+        
+        let html = `
+            <div>
+                <h5 class="font-bold text-red-800 mb-1 border-b border-red-200 pb-1">⚠️ System Faults (Control & Calibration)</h5>
+                <table class="w-full border-collapse bg-white shadow-sm rounded overflow-hidden">
+                    <thead class="text-gray-500 border-b bg-gray-100">
+                        <tr>
+                            <th class="p-2 border-r border-gray-200 text-center font-semibold w-36">Time</th>
+                            <th class="p-2 border-r border-gray-200 text-center font-semibold w-16">Temp</th>
+                            <th class="p-2 border-r border-gray-200 text-center font-semibold w-16">Heat <</th>
+                            <th class="p-2 border-r border-gray-200 text-center font-semibold w-16">Cool ></th>
+                            <th class="p-2 border-r border-gray-200 text-center font-semibold w-24">Type</th>
+                            <th class="p-2 text-left font-semibold">Diagnosis</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+        `;
+
+        showIssues.forEach(issue => {
+             const fmt = (n) => Number.isInteger(n) ? n : n.toFixed(1);
+             const typeClass = issue.type === 'Control' ? 'badge-error' : 'badge-calib';
+             
+             html += `
+                <tr class="hover:bg-gray-50">
+                    <td class="p-2 border-r border-gray-200 text-center text-gray-600 whitespace-nowrap align-top">${issue.time.toLocaleString()}</td>
+                    <td class="p-2 border-r border-gray-200 text-center text-gray-800 font-mono align-top font-bold">${issue.temp.toFixed(1)}</td>
+                    <td class="p-2 border-r border-gray-200 text-center text-gray-500 font-mono align-top">${fmt(issue.heat)}</td>
+                    <td class="p-2 border-r border-gray-200 text-center text-gray-500 font-mono align-top">${fmt(issue.cool)}</td>
+                    <td class="p-2 border-r border-gray-200 text-center align-top"><span class="${typeClass}">${issue.type}</span></td>
+                    <td class="p-2 text-left text-gray-700 align-top text-xs">${issue.diagnosis}</td>
+                </tr>
+            `;
+        });
+        
+        html += `</tbody></table>`;
+
+        // Pagination Controls
+        if (totalPages > 1) {
+            html += `
+                <div class="bg-gray-50 border-t border-gray-200 p-2 flex justify-center items-center gap-2 text-xs">
+                    <button class="node-pag-btn px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium" data-action="first" data-id="${node.id}" ${currentPage === 1 ? 'disabled' : ''}>First</button>
+                    <button class="node-pag-btn px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium" data-action="prev" data-id="${node.id}" ${currentPage === 1 ? 'disabled' : ''}>Prev</button>
+                    
+                    <span class="text-gray-600 flex items-center gap-1 mx-2">
+                        Page 
+                        <select class="node-pag-select border border-gray-300 rounded py-0.5 px-1 bg-white text-xs" data-id="${node.id}">
+                            ${Array.from({length: totalPages}, (_, i) => `<option value="${i+1}" ${i+1 === currentPage ? 'selected' : ''}>${i+1}</option>`).join('')}
+                        </select>
+                        of ${totalPages}
+                    </span>
+
+                    <button class="node-pag-btn px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium" data-action="next" data-id="${node.id}" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
+                    <button class="node-pag-btn px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 font-medium" data-action="last" data-id="${node.id}" ${currentPage === totalPages ? 'disabled' : ''}>Last</button>
+                </div>
+            `;
+        }
+        
+        html += `</div>`;
+        return html;
+    }
+
+    function renderGlobalReportPage() {
+        // Clear content
+        let html = '';
+        
+        const startIndex = (currentGlobalPage - 1) * GLOBAL_ITEMS_PER_PAGE;
+        const endIndex = Math.min(startIndex + GLOBAL_ITEMS_PER_PAGE, currentGlobalNodesList.length);
+        const pageItems = currentGlobalNodesList.slice(startIndex, endIndex);
+        const totalPages = Math.ceil(currentGlobalNodesList.length / GLOBAL_ITEMS_PER_PAGE);
+
+        pageItems.forEach(node => {
+            html += `
+            <details class="group bg-white border border-red-100 rounded-md overflow-hidden mb-1">
+                <summary class="px-4 py-2 hover:bg-red-50 flex items-center justify-between text-sm font-medium text-gray-800">
+                    <div class="flex items-center gap-2">
+                        <span class="tree-arrow text-gray-400">▶</span>
+                        <span>${node.displayName}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        ${node.controlCount > 0 ? `<span class="bg-red-100 text-red-700 py-0.5 px-2 rounded-full text-xs font-bold">${node.controlCount} Control</span>` : ''}
+                        ${node.calibrationCount > 0 ? `<span class="bg-orange-100 text-orange-800 py-0.5 px-2 rounded-full text-xs font-bold">${node.calibrationCount} Calib</span>` : ''}
+                        ${node.scheduleIssues.length > 0 ? `<span class="bg-yellow-100 text-yellow-800 py-0.5 px-2 rounded-full text-xs font-bold">${node.scheduleIssues.length} Irregular</span>` : ''}
+                    </div>
+                </summary>
+                <div class="px-4 py-4 bg-gray-50 text-xs border-t border-red-100 flex flex-col gap-4">
+            `;
+            
+            // --- SECTION 1: SYSTEM FAULTS ---
+            if (node.anomalies.length > 0) {
+                html += `<div id="node-faults-${node.id}">`;
+                html += generateNodeFaultsUI(node);
+                html += `</div>`;
+            }
+
+            // --- SECTION 2: SCHEDULE ISSUES ---
+            if (node.scheduleIssues.length > 0) {
+                html += `
+                    <div>
+                        <h5 class="font-bold text-yellow-800 mb-1 border-b border-yellow-200 pb-1">🕒 Irregular Schedule Changes</h5>
+                        <table class="w-full border-collapse bg-white shadow-sm rounded overflow-hidden">
+                            <thead class="text-gray-500 border-b bg-gray-100">
+                                <tr>
+                                    <th class="p-2 border-r border-gray-200 text-center font-semibold w-36">Time</th>
+                                    <th class="p-2 border-r border-gray-200 text-center font-semibold w-24">New Heat</th>
+                                    <th class="p-2 border-r border-gray-200 text-center font-semibold w-24">New Cool</th>
+                                    <th class="p-2 text-left font-semibold">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                `;
+                
+                node.scheduleIssues.forEach(issue => {
+                    html += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-2 border-r border-gray-200 text-center text-gray-600 whitespace-nowrap">${issue.time.toLocaleString()}</td>
+                            <td class="p-2 border-r border-gray-200 text-center text-gray-800 font-mono">${issue.heat}</td>
+                            <td class="p-2 border-r border-gray-200 text-center text-gray-800 font-mono">${issue.cool}</td>
+                            <td class="p-2 text-left text-yellow-700">Irregular Time (Common: ${issue.commonHours})</td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table></div>`;
+            }
+
+            html += `</div></details>`;
+        });
+
+        elements.globalSummaryContent.innerHTML = html;
+
+        // Update Controls & Dropdown
+        elements.globalTotalPages.innerText = totalPages;
+        elements.btnFirstGlobal.disabled = currentGlobalPage === 1;
+        elements.btnPrevGlobal.disabled = currentGlobalPage === 1;
+        elements.btnNextGlobal.disabled = currentGlobalPage === totalPages;
+        elements.btnLastGlobal.disabled = currentGlobalPage === totalPages;
+
+        // Update Dropdown Options
+        elements.globalPageSelect.innerHTML = '';
+        for (let i = 1; i <= totalPages; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.text = i;
+            if (i === currentGlobalPage) opt.selected = true;
+            elements.globalPageSelect.appendChild(opt);
+        }
+    }
+
+    // Helper: Logic to detect schedule irregularities
+    function detectScheduleIrregularities(nodeData) {
+        let changes = [];
+        let prevCool = null;
+        let prevHeat = null;
+        let timeCounts = {}; 
+
+        // 1. Find all changes
+        nodeData.forEach(row => {
+            const { time, cool, heat } = row;
+            if (prevCool !== null && (cool !== prevCool || heat !== prevHeat)) {
+                // Round to nearest hour for grouping
+                let roundedHour = time.getHours();
+                if (time.getMinutes() > 45) roundedHour++;
+                let key = roundedHour + ":00"; 
+
+                if (!timeCounts[key]) timeCounts[key] = 0;
+                timeCounts[key]++;
+
+                changes.push({ time, cool, heat, hourKey: key });
+            }
+            prevCool = cool;
+            prevHeat = heat;
+        });
+
+        // 2. Identify Regular Pattern
+        if (changes.length < 3) return [];
+
+        let maxFreq = 0;
+        for (let k in timeCounts) {
+            if (timeCounts[k] > maxFreq) maxFreq = timeCounts[k];
+        }
+
+        // 3. Filter for Irregularities
+        const irregularities = changes.filter(c => {
+            return timeCounts[c.hourKey] < (maxFreq * 0.5);
+        }).map(c => {
+            const common = Object.keys(timeCounts).filter(k => timeCounts[k] >= (maxFreq * 0.5)).join(", ");
+            return { ...c, commonHours: common };
+        });
+
+        return irregularities;
+    }
+
+    // Helper: Isolated logic for detecting anomalies on a set of clean data
+    function detectNodeAnomalies(cleanRows) {
+        const issues = [];
+        cleanRows.forEach(row => {
+            const { time, temp, psi, cool, heat } = row;
+            let diagnosis = null;
+            let type = null;
+
+            // Condition 1: Too Hot (With 1 degree tolerance)
+            if (temp > (cool + 1.0)) {
+                // Target: Cooling (8-16 PSI)
+                if (psi < 8) {
+                    // Wrong side (Heating)
+                    type = "Calibration";
+                    diagnosis = `Zone Hot (> ${cool}) but Valve Heating (${psi.toFixed(1)} PSI)`;
+                } else {
+                    // Correct side (Cooling) but not satisfied
+                    type = "Control";
+                    diagnosis = `Zone Hot (> ${cool}), Valve Cooling (${psi.toFixed(1)} PSI) but setpoint not met`;
+                }
+            }
+            // Condition 2: Too Cold (With 1 degree tolerance)
+            else if (temp < (heat - 1.0)) {
+                // Target: Heating (0-8 PSI)
+                if (psi > 8) {
+                    // Wrong side (Cooling)
+                    type = "Calibration";
+                    diagnosis = `Zone Cold (< ${heat}) but Valve Cooling (${psi.toFixed(1)} PSI)`;
+                } else {
+                    // Correct side (Heating) but not satisfied
+                    type = "Control";
+                    diagnosis = `Zone Cold (< ${heat}), Valve Heating (${psi.toFixed(1)} PSI) but setpoint not met`;
+                }
+            }
+
+            if (diagnosis) {
+                issues.push({ time, diagnosis, temp, cool, heat, type });
+            }
+        });
+        return issues;
+    }
+
+    // --- Analysis Logic (Single Node) ---
+    function runAnalysis() {
+        if (!currentFilteredData || currentFilteredData.length === 0) return;
+        
+        elements.analysisSection.classList.remove('hidden');
+        elements.tblSetpoints.innerHTML = '';
+        // Clear array and table
+        currentAnomaliesList = [];
+        currentAnomalyPage = 1;
+        
+        const colSetpoint = findColumn(["Setpoint"]); 
+        const colCool = findColumn(["Cool Above"]);
+        const colHeat = findColumn(["Heat Below"]);
+        const colZone = findColumn(["Zone Temp", "Temperature", "Temp"]);
+        const colPressure = findColumn(["Branch Pressure", "Pressure", "PSI"]);
+
+        // 1. Setpoint Analysis
+        let changes = [];
+        let prevCool = null;
+        let prevHeat = null;
+        let timeCounts = {}; 
+
+        currentFilteredData.forEach(row => {
+            const t = row.time;
+            const cool = parseFloat(row[colCool]);
+            const heat = parseFloat(row[colHeat]);
+            
+            if (prevCool !== null && (cool !== prevCool || heat !== prevHeat)) {
+                let roundedHour = t.getHours();
+                if (t.getMinutes() > 45) roundedHour++;
+                let key = roundedHour + ":00"; 
+
+                if (!timeCounts[key]) timeCounts[key] = 0;
+                timeCounts[key]++;
+
+                changes.push({
+                    time: t,
+                    cool: cool,
+                    heat: heat,
+                    prevCool: prevCool,
+                    prevHeat: prevHeat,
+                    hourKey: key
+                });
+            }
+            prevCool = cool;
+            prevHeat = heat;
+        });
+
+        let maxFreq = 0;
+        for (let k in timeCounts) {
+            if (timeCounts[k] > maxFreq) maxFreq = timeCounts[k];
+        }
+
+        changes.forEach(c => {
+            const tr = document.createElement('tr');
+            let isIrregular = elements.chkShowIrregular.checked && timeCounts[c.hourKey] < (maxFreq * 0.5) && changes.length > 5;
+            
+            tr.innerHTML = `
+                <td>${c.time.toLocaleString()}</td>
+                <td>${c.heat}</td>
+                <td>${c.cool}</td>
+                <td>${isIrregular ? '<span class="badge-warn">Irregular Time</span>' : '<span class="badge-ok">Scheduled</span>'}</td>
+            `;
+            elements.tblSetpoints.appendChild(tr);
+        });
+
+        if (changes.length === 0) {
+            elements.tblSetpoints.innerHTML = '<tr><td colspan="4" class="text-gray-500 italic">No setpoint changes detected.</td></tr>';
+        }
+
+        // 2. Anomaly Detection (Pneumatic Logic)
+        currentFilteredData.forEach(row => {
+            const temp = parseFloat(row[colZone]);
+            const psi = parseFloat(row[colPressure]);
+            const coolAbove = parseFloat(row[colCool]);
+            const heatBelow = parseFloat(row[colHeat]);
+            const t = row.time;
+
+            if (isNaN(temp) || isNaN(psi)) return;
+
+            const issues = detectNodeAnomalies([{ time: t, temp, psi, cool: coolAbove, heat: heatBelow }]);
+
+            if (issues.length > 0) {
+                issues.forEach(issue => {
+                    currentAnomaliesList.push({
+                        time: t,
+                        temp: temp,
+                        psi: psi,
+                        heat: heatBelow,
+                        cool: coolAbove,
+                        type: issue.type,
+                        diagnosis: issue.diagnosis
+                    });
+                });
+            }
+        });
+
+        // Render first page of anomalies
+        renderAnomalyPage();
+    }
+
+    function renderAnomalyPage() {
+        elements.tblAnomalies.innerHTML = '';
+        
+        if (currentAnomaliesList.length === 0) {
+            elements.tblAnomalies.innerHTML = '<tr><td colspan="5" class="text-gray-500 italic p-4 text-center">No anomalies found. System operating within parameters.</td></tr>';
+            elements.totalPagesDisplay.innerText = "0";
+            elements.btnFirstPage.disabled = true;
+            elements.btnPrevPage.disabled = true;
+            elements.btnNextPage.disabled = true;
+            elements.btnLastPage.disabled = true;
+            elements.pageSelect.innerHTML = '';
+            return;
+        }
+
+        const startIndex = (currentAnomalyPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, currentAnomaliesList.length);
+        const pageItems = currentAnomaliesList.slice(startIndex, endIndex);
+        const totalPages = Math.ceil(currentAnomaliesList.length / ITEMS_PER_PAGE);
+
+        pageItems.forEach(item => {
+            const tr = document.createElement('tr');
+            
+            const fmt = (n) => Number.isInteger(n) ? n : n.toFixed(1);
+            // UPDATED: Calibration is the Error (Red), Control is the Warning (Orange)
+            const typeClass = item.type === 'Calibration' ? 'badge-error' : 'badge-calib';
+
+            tr.innerHTML = `
+                <td>${item.time.toLocaleString()}</td>
+                <td>${item.temp.toFixed(1)}</td>
+                <td>${item.psi.toFixed(1)}</td>
+                <td><span class="${typeClass}">${item.type}</span></td>
+                <td>
+                    <div>${item.diagnosis}</div>
+                    <div class="text-xs text-gray-500 mt-1 font-mono">(Heat < ${fmt(item.heat)} / Cool > ${fmt(item.cool)})</div>
+                </td>
+            `;
+            elements.tblAnomalies.appendChild(tr);
+        });
+
+        // Update Controls & Dropdown
+        elements.totalPagesDisplay.innerText = totalPages;
+        elements.btnFirstPage.disabled = currentAnomalyPage === 1;
+        elements.btnPrevPage.disabled = currentAnomalyPage === 1;
+        elements.btnNextPage.disabled = currentAnomalyPage === totalPages;
+        elements.btnLastPage.disabled = currentAnomalyPage === totalPages;
+
+        // Update Dropdown Options
+        elements.pageSelect.innerHTML = '';
+        for (let i = 1; i <= totalPages; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.text = i;
+            if (i === currentAnomalyPage) opt.selected = true;
+            elements.pageSelect.appendChild(opt);
+        }
+    }
+
+
+    // --- Logic: PocketBase Upload ---
+    async function uploadToPocketBase(filenameOverride) {
+        if (!pb) return window.showError("PocketBase not initialized.");
+        if (rawData.length === 0) return window.showError("No data to upload.");
+
+        const filename = filenameOverride || "data.xlsx";
+        setStatus(true, "Auto-uploading to PocketBase...");
+        
+        try {
+            const jsonString = JSON.stringify(rawData);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            
+            // Log size
+            const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+            window.log(`Payload size: ${sizeMB} MB`);
+            console.log(`Payload size: ${sizeMB} MB`);
+
+            if (blob.size > 100 * 1024 * 1024) {
+                 window.log("Warning: File is over 100MB. Upload might timeout.");
+            }
+
+            const formData = new FormData();
+            formData.append('filename', filename);
+            formData.append('dataset', blob, filename + '.json');
+
+            setStatus(true, `Uploading ${sizeMB} MB to PocketBase...`);
+
+            const record = await pb.collection('hvac_files').create(formData);
+            
+            console.log("Upload Response:", record); // Debugging
+
+            if (!record || !record.id) {
+                throw new Error("Server returned success but no Record ID. Check server logs.");
+            }
+            
+            window.log(`Upload complete! ID: ${record.id}`);
+            setStatus(false);
+            
+            // Reload server list to see new file
+            loadServerFiles();
+
+        } catch (err) {
+            console.error("Upload Error:", err);
+            window.showError("Upload failed: " + (err.message || err));
+            window.log("Upload Error Details: " + JSON.stringify(err));
+            setStatus(false);
+        }
+    }
+
+    // --- Logic: PocketBase List & Load ---
+    async function loadServerFiles() {
+        if (!pb) return;
+        
+        try {
+            // elements.serverStatus.innerText = "Connecting..."; // Removing noisy status update
+            window.log("Refreshing file list...");
+            const resultList = await pb.collection('hvac_files').getList(1, 50, {
+                sort: '-created',
+            });
+            
+            elements.serverStatus.innerText = "Connected";
+            elements.serverStatus.className = "text-xs text-green-600 font-bold font-mono";
+            // window.log(`Connected. Found ${resultList.items.length} files.`);
+            
+            const select = elements.serverFileSelect;
+            select.innerHTML = '<option value="">-- Select a File --</option>';
+            
+            if(resultList.items.length === 0) {
+                 select.innerHTML = '<option value="">No files found on server</option>';
+            }
+
+            resultList.items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = item.filename || item.id; 
+                opt.dataset.jsonFilename = item.dataset;
+                select.appendChild(opt);
+            });
+
+            // Auto-load if only one file
+            if (resultList.items.length === 1) {
+                select.value = resultList.items[0].id;
+                loadFromPocketBase();
+            }
+
+        } catch (err) {
+            console.error("List fetch error", err);
+            elements.serverStatus.innerText = "Connection Failed";
+            elements.serverStatus.className = "text-xs text-red-600 font-bold font-mono";
+            let msg = err.message;
+            if (err.status === 0) msg = "Network Error (CORS or SSL Certificate untrusted)";
+            if (err.status === 404) msg = "404 Not Found (Collection 'hvac_files' missing?)";
+            elements.serverFileSelect.innerHTML = `<option>Error: ${msg}</option>`;
+            window.log(`FATAL ERROR: ${msg}`);
+        }
+    }
+
+    async function loadFromPocketBase() {
+        const fileId = elements.serverFileSelect.value;
+        if (!fileId) return;
+
+        const selectedOption = elements.serverFileSelect.options[elements.serverFileSelect.selectedIndex];
+        const datasetFilename = selectedOption.dataset.jsonFilename;
+
+        resetUI();
+        setStatus(true, "Downloading file...");
+        window.log(`Fetching record ID: ${fileId}`);
+
+        try {
+            const record = await pb.collection('hvac_files').getOne(fileId);
+            const url = pb.files.getUrl(record, record.dataset);
+            
+            window.log(`Downloading from: ${url}`);
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to download file content");
+            
+            rawData = await response.json();
+            
+            headers = Object.keys(rawData[0]);
+            window.log(`Successfully loaded ${rawData.length} rows.`);
+            
+            // Update Date Range Info
+            const rangeInfo = calculateDateRange();
+            if (rangeInfo) {
+                elements.serverFileInfo.innerText = rangeInfo.str;
+                // Fetch weather if available
+                fetchWeatherForRange(rangeInfo.min, rangeInfo.max);
+            }
+
+            populateDropdown();
+            runGlobalAnalysis(); // New: Global scan
+
+            setStatus(false);
+
+        } catch (err) {
+            console.error(err);
+            window.showError("Load failed: " + err.message);
+            setStatus(false);
+        }
+    }
+
+    // --- UI Helpers ---
+    function resetUI() {
+        elements.errorMsg.classList.add('hidden');
+        elements.nodeSelect.innerHTML = '<option value="">Waiting...</option>';
+        elements.nodeSelect.disabled = true;
+        elements.analysisSection.classList.add('hidden');
+        elements.globalSummarySection.classList.add('hidden'); 
+        elements.localFileInfo.innerText = '';
+        elements.serverFileInfo.innerText = '';
+        Plotly.purge('chart');
+    }
+
+    function setStatus(show, msg) {
+        if (show) {
+            elements.statusArea.classList.remove('hidden');
+            elements.statusText.innerText = msg;
+        } else {
+            elements.statusArea.classList.add('hidden');
+        }
+    }
+
+    function populateDropdown() {
+        const uniqueNodes = new Set();
+        const nodeNameKey = headers.find(h => h.includes("Node Name")) || headers.find(h => h.includes("Node"));
+
+        if (!nodeNameKey) {
+            window.showError("Could not find a 'Node Name' column.");
+            return;
+        }
+
+        for (let i = 0; i < rawData.length; i++) {
+            if (rawData[i][nodeNameKey]) uniqueNodes.add(rawData[i][nodeNameKey]);
+        }
+        
+        // Use mapping to create display options
+        const nodeOptions = Array.from(uniqueNodes).map(nodeId => {
+            const friendlyName = vavMapping[nodeId];
+            const displayName = friendlyName ? `${friendlyName} (${nodeId})` : nodeId;
+            return { value: nodeId, text: displayName };
+        });
+
+        // Sort by the new display text
+        nodeOptions.sort((a, b) => a.text.localeCompare(b.text));
+
+        elements.nodeSelect.innerHTML = '<option value="">Select a Node</option>';
+        nodeOptions.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.text;
+            elements.nodeSelect.appendChild(option);
+        });
+        
+        elements.nodeSelect.disabled = false;
+        
+        // Auto-select first option if available
+        if (nodeOptions.length > 0) {
+            elements.nodeSelect.value = nodeOptions[0].value;
+            updateChart();
+            runAnalysis(); // Auto run analysis
+        }
+    }
+
+    function parseDate(val) {
+        if (!val) return null;
+        if (val instanceof Date) return val;
+        let d = new Date(val);
+        if (!isNaN(d.getTime())) return d;
+        try { return new Date(Date.parse(val)); } catch (e) { return null; }
+    }
+
+    function findColumn(searchTerms) {
+        if (!Array.isArray(searchTerms)) searchTerms = [searchTerms];
+        for (let term of searchTerms) {
+            const found = headers.find(h => h.toLowerCase().includes(term.toLowerCase()));
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function updateChart() {
+        const selectedNode = elements.nodeSelect.value;
+        if (!selectedNode) return;
+
+        window.log(`Plotting: ${selectedNode}`);
+
+        const colNode = findColumn(["Node Name", "NodeID", "Device"]);
+        const colTime = findColumn(["Time", "Date", "Timestamp"]);
+        
+        if (!colTime) return window.showError("No Time column found.");
+
+        const colSetpoint = findColumn(["Setpoint"]);
+        const colCool = findColumn(["Cool Above"]);
+        const colHeat = findColumn(["Heat Below"]);
+        const colZone = findColumn(["Zone Temp", "Temperature", "Temp"]);
+        const colPressure = findColumn(["Branch Pressure", "Pressure", "PSI"]);
+
+        let nodeData = rawData.filter(row => row[colNode] == selectedNode);
+        
+        // Save to global for analysis
+        currentFilteredData = nodeData.map(row => ({ time: parseDate(row[colTime]), ...row }))
+            .filter(d => d.time instanceof Date && !isNaN(d.time))
+            .sort((a, b) => a.time - b.time);
+
+        if (currentFilteredData.length === 0) return window.showError("No valid data for this node.");
+
+        const times = currentFilteredData.map(d => d.time);
+        
+        // Resolve friendly name for title
+        const friendlyName = vavMapping[selectedNode];
+        const titleText = friendlyName ? `Trend: ${friendlyName} (${selectedNode})` : `Trend: ${selectedNode}`;
+
+        const createTrace = (name, key, color, axis = 'y') => {
+            if (!key) return null; 
+            return {
+                x: times,
+                y: currentFilteredData.map(row => {
+                    let val = row[key];
+                    if (typeof val === 'string') val = parseFloat(val);
+                    return val;
+                }),
+                type: 'scatter',
+                mode: 'lines',
+                name: name, 
+                yaxis: axis, 
+                line: { color: color, width: 2 },
+                connectgaps: true
+            };
+        };
+
+        const traces = [
+            createTrace('Setpoint', colSetpoint, '#10b981'),
+            createTrace('Cool Above', colCool, '#3b82f6'),
+            createTrace('Heat Below', colHeat, '#ef4444'),
+            createTrace('Zone Temp', colZone, '#f59e0b'),
+            createTrace('Branch Pressure', colPressure, '#8b5cf6', 'y2')
+        ].filter(t => t !== null);
+
+        // Add Weather Trace if available
+        if (weatherData) {
+            traces.push({
+                x: weatherData.times,
+                y: weatherData.temps,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Outside Air Temp (PIT)',
+                line: { color: '#94a3b8', dash: 'dot', width: 2 },
+                yaxis: 'y'
+            });
+        }
+
+        const layout = {
+            title: { text: titleText, font: { size: 24 } },
+            xaxis: {
+                title: 'Time',
+                rangeslider: {visible: true},
+                type: 'date',
+                automargin: true
+            },
+            yaxis: { title: 'Temperature (°F)', fixedrange: false },
+            yaxis2: { title: 'Pressure (PSI)', overlaying: 'y', side: 'right', fixedrange: false },
+            hovermode: 'x unified',
+            legend: { 
+                orientation: "h", 
+                x: 0.5, 
+                xanchor: "center", 
+                y: 1.15, 
+                yanchor: "top" 
+            },
+            autosize: true,
+            margin: { t: 130 }
+        };
+
+        Plotly.newPlot('chart', traces, layout, { responsive: true, displayModeBar: true });
+    }
+</script>
+</body>
+</html>
