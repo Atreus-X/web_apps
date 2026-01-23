@@ -33,7 +33,8 @@ import {
   Wifi,
   ServerCrash,
   AlertTriangle,
-  KeyRound
+  KeyRound,
+  Printer
 } from 'lucide-react';
 import PocketBase from 'pocketbase';
 
@@ -531,6 +532,100 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
     return { total, open, wait, complete };
   }, [workOrders]);
 
+  // --- Print Report ---
+  const handlePrintReport = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const getStatusStyle = (status: string) => {
+      const s = (status || '').toUpperCase();
+      if (s === 'APPROVED') return 'background-color: #ccfbf1; color: #0f766e; border-color: #99f6e4;';
+      if (s === 'CANCELLED') return 'background-color: #fee2e2; color: #b91c1c; border-color: #fecaca; text-decoration: line-through;';
+      if (['COMPLETE', 'DONE'].includes(s)) return 'background-color: #d1fae5; color: #047857; border-color: #a7f3d0;';
+      if (s === 'DEFERRED') return 'background-color: #f4f4f5; color: #52525b; border-color: #e4e4e7;';
+      if (['IN-PROGRESS', 'ON-GOING'].includes(s)) return 'background-color: #dbeafe; color: #1d4ed8; border-color: #bfdbfe;';
+      if (s === 'QUOTE-RECVD' || s === 'WAIT-RECV-QUOTE') return 'background-color: #e0e7ff; color: #4338ca; border-color: #c7d2fe;';
+      if (s === 'WINVOICE-C') return 'background-color: #fce7f3; color: #be185d; border-color: #fbcfe8;';
+      if (s === 'NEEDS HOURS') return 'background-color: #ffedd5; color: #c2410c; border-color: #fed7aa;';
+      if (s === 'WAIT-APPROVAL') return 'background-color: #f3e8ff; color: #7e22ce; border-color: #e9d5ff;';
+      if (['WAIT-ORDER-PARTS', 'WAIT-RECV-PARTS', 'WAIT-PARTS-INSTALL'].includes(s)) return 'background-color: #fef3c7; color: #b45309; border-color: #fde68a;';
+      if (s === 'WAIT-PROJ-START') return 'background-color: #fef9c3; color: #854d0e; border-color: #fde047;';
+      if (s === 'WAIT-PROP-COND') return 'background-color: #fae8ff; color: #a21caf; border-color: #f5d0fe;';
+      return 'background-color: #f1f5f9; color: #475569; border-color: #e2e8f0;';
+    };
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Work Orders Report</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; color: #1f2937; font-size: 12px; }
+            h1 { text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: 800; color: #111827; }
+            .header-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background-color: #f3f4f6; color: #374151; font-weight: 700; text-transform: uppercase; padding: 6px 8px; text-align: left; border: 1px solid #e5e7eb; white-space: nowrap; font-size: 10px; }
+            td { padding: 6px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
+            tr:nth-child(even) { background-color: #f9fafb; }
+            .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 9px; text-transform: uppercase; border: 1px solid; }
+            .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+            .nowrap { white-space: nowrap; }
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+              @page { size: landscape; margin: 1cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+            <button onclick="window.print()" style="padding: 8px 16px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Print Report</button>
+          </div>
+          
+          <h1>Work Orders Report</h1>
+          <div class="header-info">
+            <span>Generated: ${new Date().toLocaleString()}</span>
+            <span>Total Records: ${filteredData.length}</span>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>WO #</th>
+                <th>Status</th>
+                <th>Description</th>
+                <th>Priority</th>
+                <th>Assignee</th>
+                <th>Building</th>
+                <th>Type</th>
+                <th>Reported</th>
+                <th>Contact</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredData.map(wo => `
+                <tr>
+                  <td class="mono nowrap" style="font-weight: 600;">${wo.wo_number}</td>
+                  <td class="nowrap"><span class="status-badge" style="${getStatusStyle(wo.status)}">${wo.status}</span></td>
+                  <td>${wo.description || ''}</td>
+                  <td class="nowrap">${wo.priority}</td>
+                  <td class="nowrap">${wo.assignee || '-'}</td>
+                  <td class="nowrap">${wo.bldg_abbr || wo.bldg_name || '-'}</td>
+                  <td class="nowrap">${wo.wo_type || '-'}</td>
+                  <td class="nowrap">${wo.date_reported ? new Date(wo.date_reported).toLocaleDateString() : '-'}</td>
+                  <td class="nowrap">${wo.contact_name || wo.contact_abbr || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   // --- CSV Import ---
   const handleImportClick = () => fileInputRef.current?.click();
 
@@ -973,6 +1068,14 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               <span className="hidden lg:inline">Import</span>
+            </button>
+
+            <button 
+              onClick={handlePrintReport}
+              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 px-3 py-2 rounded-lg text-sm font-medium transition-all shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              <span className="hidden lg:inline">Print Report</span>
             </button>
 
             <button 
