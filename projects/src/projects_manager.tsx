@@ -1,5 +1,6 @@
 // @ts-ignore
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Search, 
   Plus, 
@@ -76,6 +77,16 @@ interface Project {
   last_modified_at: string;
 }
 
+interface BuildingInfo {
+  id: string;
+  bldg_name: string;
+  bldg_cmu_abbr: string;
+  bldg_max_abbr: string;
+  bldg_zone?: string;
+  bldg_zone_supervisor?: string;
+  bldg_number?: string;
+}
+
 // --- Components ---
 
 const getAvatarColor = (name: string) => {
@@ -136,6 +147,55 @@ const PriorityBadge = ({ priority }: { priority: PriorityLevel }) => {
     'Critical': 'text-red-600 font-extrabold',
   };
   return <span className={`text-xs ${colors[priority]}`}>{priority}</span>;
+};
+
+const BuildingTooltip = ({ name, buildings }: { name: string, buildings: BuildingInfo[] }) => {
+  const building = buildings.find(b => b.bldg_name === name);
+  const abbr = building ? (building.bldg_max_abbr || building.bldg_cmu_abbr) : null;
+  const display = abbr || name;
+
+  const [isHovering, setIsHovering] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCoords({
+      top: rect.top - 5,
+      left: rect.left + rect.width / 2
+    });
+    setIsHovering(true);
+  };
+
+  return (
+    <>
+      <div
+        className="cursor-help inline-flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        <Building className="w-3 h-3 text-slate-400" />
+        <span className="text-slate-800 text-sm">{display}</span>
+      </div>
+
+      {isHovering && building && createPortal(
+        <div
+          className="fixed z-[9999] w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+          style={{ top: coords.top, left: coords.left, transform: 'translate(-50%, -100%)' }}
+        >
+          <div className="font-bold text-sm mb-1 text-indigo-300">{building.bldg_name}</div>
+          <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+            <span className="text-slate-400">CMU Abbr:</span><span className="font-mono">{building.bldg_cmu_abbr || '-'}</span>
+            <span className="text-slate-400">Maximo Abbr:</span><span className="font-mono">{building.bldg_max_abbr || '-'}</span>
+            {building.bldg_number && <><span className="text-slate-400">Number:</span><span>{building.bldg_number}</span></>}
+            {building.bldg_zone && <><span className="text-slate-400">Zone:</span><span>{building.bldg_zone}</span></>}
+            {building.bldg_zone_supervisor && <><span className="text-slate-400">Supervisor:</span><span>{building.bldg_zone_supervisor}</span></>}
+          </div>
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
 };
 
 // Error Boundary Component
@@ -243,7 +303,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
 
   // --- App State ---
   const [projects, setProjects] = useState<Project[]>([]);
-  const [buildings, setBuildings] = useState<string[]>(['Porter Hall', 'Baker Hall', 'Wean Hall', 'Hamerschlag Hall']); 
+  const [buildings, setBuildings] = useState<BuildingInfo[]>([]); 
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof Project>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -352,10 +412,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
       }));
       setProjects(mapped);
 
-      const bldgNames = buildingsRes.map((b: any) => b.bldg_name).filter(Boolean);
-      if (bldgNames.length > 0) {
-          setBuildings([...new Set(bldgNames)].sort() as string[]);
-      }
+      setBuildings(buildingsRes as BuildingInfo[]);
     } catch (err) {
       console.error("PB Load Error:", err);
     } finally {
@@ -880,6 +937,9 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                   <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('name')}>
                     <div className="flex items-center gap-1">Project <SortIcon field="name" /></div>
                   </th>
+                  <th className="px-4 py-3 text-center" onClick={() => handleSort('state')}>
+                    State
+                  </th>
                   <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('building')}>
                     <div className="flex items-center gap-1">Building <SortIcon field="building" /></div>
                   </th>
@@ -907,9 +967,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                   </th>
                   <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('completion_date')}>
                     Completion
-                  </th>
-                  <th className="px-4 py-3 text-center" onClick={() => handleSort('state')}>
-                    State
                   </th>
                 </tr>
               </thead>
@@ -940,13 +997,13 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                         <div className="text-[10px] text-slate-400 truncate max-w-[200px]">{project.description}</div>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <StateBadge state={project.state} />
+                    </td>
                     <td className="px-4 py-3 text-slate-600">
                       <div className="flex flex-wrap gap-1">
                         {project.building.map((b, i) => (
-                          <span key={i} className="flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                            <Building className="w-3 h-3 text-slate-400" />
-                            {b}
-                          </span>
+                          <BuildingTooltip key={i} name={b} buildings={buildings} />
                         ))}
                       </div>
                     </td>
@@ -998,9 +1055,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                     <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">
                       {project.completion_date || <span className="text-slate-300">-</span>}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <StateBadge state={project.state} />
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1049,7 +1103,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
               />
               <BulkEditField label="Building" 
                 onUpdate={(val: any) => handleBulkEdit({ building: [val] })} 
-                isInput list={buildings}
+                isInput list={buildings.map(b => b.bldg_name)}
               />
               <BulkEditField label="Target Start Date" 
                 onUpdate={(val: any) => handleBulkEdit({ target_start_date: val })} 
@@ -1186,15 +1240,12 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                         values={selectedProject.building} 
                         onChange={v => setSelectedProject({...selectedProject, building: v})} 
                         placeholder="Add Building"
-                        list={buildings}
+                        list={buildings.map(b => b.bldg_name)}
                       />
                     ) : (
                       <div className="flex flex-wrap gap-1">
                         {selectedProject.building.map((b, i) => (
-                          <div key={i} className="flex items-center gap-1 bg-slate-50 border border-slate-100 px-2 py-1 rounded">
-                            <Building className="w-3 h-3 text-slate-400" />
-                            <span className="text-slate-800 text-sm">{b}</span>
-                          </div>
+                          <BuildingTooltip key={i} name={b} buildings={buildings} />
                         ))}
                       </div>
                     )}
