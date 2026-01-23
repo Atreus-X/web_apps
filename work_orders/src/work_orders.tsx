@@ -79,6 +79,13 @@ interface ContactInfo {
   supervisor: string;
 }
 
+interface BuildingInfo {
+  id: string;
+  bldg_name: string;
+  bldg_cmu_abbr: string;
+  bldg_max_abbr: string;
+}
+
 // --- Constants ---
 
 const STATUS_OPTIONS = [
@@ -333,6 +340,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   // --- App State ---
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
+  const [buildings, setBuildings] = useState<BuildingInfo[]>([]);
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof WorkOrder>('date_reported');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -382,13 +390,15 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [woRes, contactsRes] = await Promise.all([
+      const [woRes, contactsRes, buildingsRes] = await Promise.all([
         pb.collection(COLLECTION_NAME).getFullList({ sort: '-created' }),
-        pb.collection('contacts').getFullList().catch((e: any) => { console.warn("Contacts load failed", e); return []; })
+        pb.collection('contacts').getFullList().catch((e: any) => { console.warn("Contacts load failed", e); return []; }),
+        pb.collection('buildings').getFullList().catch((e: any) => { console.warn("Buildings load failed", e); return []; })
       ]);
       
       setWorkOrders(woRes as WorkOrder[]);
       setContacts(contactsRes as ContactInfo[]);
+      setBuildings(buildingsRes as BuildingInfo[]);
     } catch (err: any) {
       console.error("PB Load Error:", err);
     } finally {
@@ -1217,12 +1227,23 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Building Name</label>
                     {isEditing ? (
-                      <input 
-                        type="text" 
-                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={selectedWO.bldg_name}
-                        onChange={e => setSelectedWO({...selectedWO, bldg_name: e.target.value})}
-                      />
+                      <>
+                        <input 
+                          type="text" 
+                          list="bldg-names-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.bldg_name}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = buildings.find(b => b.bldg_name === val);
+                              setSelectedWO(prev => ({...prev!, bldg_name: val, bldg_abbr: match ? (match.bldg_max_abbr || match.bldg_cmu_abbr) : prev!.bldg_abbr}));
+                          }}
+                          placeholder="Select or type building..."
+                        />
+                        <datalist id="bldg-names-list">
+                            {buildings.map(b => <option key={b.id} value={b.bldg_name} />)}
+                        </datalist>
+                      </>
                     ) : (
                       <div className="flex items-center gap-2 text-slate-800">
                         <Building className="w-4 h-4 text-slate-400" />
@@ -1234,12 +1255,23 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Building Abbr</label>
                     {isEditing ? (
-                      <input 
-                        type="text" 
-                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={selectedWO.bldg_abbr}
-                        onChange={e => setSelectedWO({...selectedWO, bldg_abbr: e.target.value})}
-                      />
+                      <>
+                        <input 
+                          type="text" 
+                          list="bldg-abbrs-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.bldg_abbr}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = buildings.find(b => (b.bldg_max_abbr === val || b.bldg_cmu_abbr === val));
+                              setSelectedWO(prev => ({...prev!, bldg_abbr: val, bldg_name: match ? match.bldg_name : prev!.bldg_name}));
+                          }}
+                          placeholder="Abbreviation..."
+                        />
+                        <datalist id="bldg-abbrs-list">
+                            {buildings.map(b => <option key={b.id} value={b.bldg_max_abbr || b.bldg_cmu_abbr} />)}
+                        </datalist>
+                      </>
                     ) : (
                       <div className="text-slate-800 font-mono text-sm bg-slate-100 px-2 py-1 inline-block rounded">{selectedWO.bldg_abbr || '-'}</div>
                     )}
