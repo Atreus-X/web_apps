@@ -518,13 +518,21 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
     if (search) {
       const lower = search.toLowerCase();
       data = data.filter(p => 
+        p.id.toLowerCase().includes(lower) ||
         p.name.toLowerCase().includes(lower) ||
         p.building.some(b => b.toLowerCase().includes(lower)) ||
+        p.priority.toLowerCase().includes(lower) ||
         p.vendor.toLowerCase().includes(lower) ||
         p.responsibility.toLowerCase().includes(lower) ||
+        p.state.toLowerCase().includes(lower) ||
+        p.description.toLowerCase().includes(lower) ||
         p.fiscal_year.toLowerCase().includes(lower) ||
         p.work_orders.some(wo => wo.toLowerCase().includes(lower)) ||
-        p.comments.toLowerCase().includes(lower)
+        p.contractors.some(c => c.toLowerCase().includes(lower)) ||
+        p.comments.toLowerCase().includes(lower) ||
+        p.target_start_date.toLowerCase().includes(lower) ||
+        p.completion_date.toLowerCase().includes(lower) ||
+        p.last_modified_by.toLowerCase().includes(lower)
       );
     }
 
