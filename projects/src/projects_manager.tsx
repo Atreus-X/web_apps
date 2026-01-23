@@ -539,6 +539,10 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
         
         if (rankA < rankB) return sortDir === 'asc' ? -1 : 1;
         if (rankA > rankB) return sortDir === 'asc' ? 1 : -1;
+        
+        // Secondary sort: name ascending
+        if (a.name.toLowerCase() < b.name.toLowerCase()) return -1;
+        if (a.name.toLowerCase() > b.name.toLowerCase()) return 1;
         return 0;
       }
 
