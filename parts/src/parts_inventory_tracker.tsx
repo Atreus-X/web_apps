@@ -672,7 +672,19 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
     if (hideComplete) result = result.filter((p: any) => String(p.status || '').toLowerCase() !== 'complete');
     if (searchTerm.trim()) {
       const lowerTerm = searchTerm.toLowerCase();
-      result = result.filter((p: any) => [p.name, p.manufacturer, p.description, p.area, p.work_order, p.vendor, p.status].join(' ').toLowerCase().includes(lowerTerm));
+      result = result.filter((p: any) => 
+        (p.name && p.name.toLowerCase().includes(lowerTerm)) ||
+        (p.manufacturer && p.manufacturer.toLowerCase().includes(lowerTerm)) ||
+        (p.sku && p.sku.toLowerCase().includes(lowerTerm)) ||
+        (p.description && p.description.toLowerCase().includes(lowerTerm)) ||
+        (p.area && p.area.toLowerCase().includes(lowerTerm)) ||
+        (p.work_order && p.work_order.toLowerCase().includes(lowerTerm)) ||
+        (p.vendor && p.vendor.toLowerCase().includes(lowerTerm)) ||
+        (p.status && p.status.toLowerCase().includes(lowerTerm)) ||
+        (p.lastActionBy && p.lastActionBy.toLowerCase().includes(lowerTerm)) ||
+        (p.date_ordered && p.date_ordered.toLowerCase().includes(lowerTerm)) ||
+        (p.date_sent && p.date_sent.toLowerCase().includes(lowerTerm))
+      );
     }
     if (sortConfig.key) {
       result.sort((a: any, b: any) => {

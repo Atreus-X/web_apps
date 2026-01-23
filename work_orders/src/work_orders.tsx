@@ -729,11 +729,20 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
     if (search) {
       const lower = search.toLowerCase();
       data = data.filter(p => 
+        (p.id && p.id.toLowerCase().includes(lower)) ||
         (p.wo_number && p.wo_number.toLowerCase().includes(lower)) ||
-        (p.description && p.description.toLowerCase().includes(lower)) ||
+        (p.status && p.status.toLowerCase().includes(lower)) ||
         (p.assignee && p.assignee.toLowerCase().includes(lower)) ||
+        (p.priority && p.priority.toLowerCase().includes(lower)) ||
+        (p.date_reported && p.date_reported.toLowerCase().includes(lower)) ||
+        (p.wo_type && p.wo_type.toLowerCase().includes(lower)) ||
+        (p.description && p.description.toLowerCase().includes(lower)) ||
+        (p.bldg_abbr && p.bldg_abbr.toLowerCase().includes(lower)) ||
         (p.bldg_name && p.bldg_name.toLowerCase().includes(lower)) ||
-        (p.contact_name && p.contact_name.toLowerCase().includes(lower))
+        (p.contact_abbr && p.contact_abbr.toLowerCase().includes(lower)) ||
+        (p.contact_name && p.contact_name.toLowerCase().includes(lower)) ||
+        (p.comments && p.comments.toLowerCase().includes(lower)) ||
+        (p.last_modified_by && p.last_modified_by.toLowerCase().includes(lower))
       );
     }
 
