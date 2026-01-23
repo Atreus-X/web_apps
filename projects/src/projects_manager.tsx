@@ -116,20 +116,20 @@ const getAvatarColor = (name: string) => {
 
 const StateBadge = ({ state }: { state: ProjectState }) => {
   const styles: Record<ProjectState, string> = {
-    'Approved': 'bg-green-100 text-green-700 border-green-200',
+    'Approved': 'bg-teal-100 text-teal-700 border-teal-200',
     'Cancelled': 'bg-red-100 text-red-700 border-red-200 line-through',
-    'Complete': 'bg-green-100 text-green-700 border-green-200',
-    'Deferred': 'bg-slate-100 text-slate-600 border-slate-200',
+    'Complete': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'Deferred': 'bg-zinc-100 text-zinc-600 border-zinc-200',
     'In-Progress': 'bg-blue-100 text-blue-700 border-blue-200',
-    'Paperwork submitted': 'bg-blue-100 text-blue-700 border-blue-200',
-    'Proposed': 'bg-slate-100 text-slate-600 border-slate-200',
-    'Quote Received': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Sent PAF to contractor': 'bg-blue-100 text-blue-700 border-blue-200',
-    'Sent to Storeroom': 'bg-amber-100 text-amber-700 border-amber-200',
+    'Paperwork submitted': 'bg-sky-100 text-sky-700 border-sky-200',
+    'Proposed': 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+    'Quote Received': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    'Sent PAF to contractor': 'bg-cyan-100 text-cyan-700 border-cyan-200',
+    'Sent to Storeroom': 'bg-orange-100 text-orange-700 border-orange-200',
     'Waiting for Parts': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Waiting for Project Start': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Waiting for Quotations': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Waiting for Invoice': 'bg-amber-100 text-amber-700 border-amber-200',
+    'Waiting for Project Start': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    'Waiting for Quotations': 'bg-purple-100 text-purple-700 border-purple-200',
+    'Waiting for Invoice': 'bg-pink-100 text-pink-700 border-pink-200',
   };
 
   return (
@@ -246,6 +246,17 @@ const MultiInput = ({ values, onChange, placeholder, list }: { values: string[],
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    if (list && list.includes(val)) {
+      if (!values.includes(val)) {
+        onChange([...values, val]);
+      }
+      setInput('');
+    }
+  };
+
   const removeValue = (index: number) => {
     onChange(values.filter((_, i) => i !== index));
   };
@@ -263,7 +274,7 @@ const MultiInput = ({ values, onChange, placeholder, list }: { values: string[],
       <input 
         type="text" 
         value={input}
-        onChange={e => setInput(e.target.value)}
+        onChange={handleChange}
         onKeyDown={handleKeyDown}
         list={list ? listId : undefined}
         className="w-full p-2 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
@@ -938,7 +949,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                     <div className="flex items-center gap-1">Project <SortIcon field="name" /></div>
                   </th>
                   <th className="px-4 py-3 text-center" onClick={() => handleSort('state')}>
-                    State
+                    Status
                   </th>
                   <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('building')}>
                     <div className="flex items-center gap-1">Building <SortIcon field="building" /></div>
@@ -1080,7 +1091,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
             </div>
             
             <div className="p-6 space-y-4">
-              <BulkEditField label="State" 
+              <BulkEditField label="Status" 
                 onUpdate={(val: any) => handleBulkEdit({ state: val })} 
                 options={STATUS_OPTIONS}
               />
@@ -1183,7 +1194,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Core Details</h3>
                   
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">State</label>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Status</label>
                     {isEditing ? (
                       <select 
                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
