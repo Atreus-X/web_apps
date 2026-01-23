@@ -1009,29 +1009,29 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                       {selectedIds.size > 0 && selectedIds.size === filteredData.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                     </button>
                   </th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('wo_number')}>
+                  <th className="px-4 py-3 whitespace-nowrap w-32 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('wo_number')}>
                     <div className="flex items-center gap-1">WO# <SortIcon field="wo_number" /></div>
                   </th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('status')}>
+                  <th className="px-4 py-3 whitespace-nowrap w-32 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('status')}>
                     <div className="flex items-center gap-1">Status <SortIcon field="status" /></div>
                   </th>
-                  <th className="px-4 py-3 w-64">Description</th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('priority')}>
+                  <th className="px-4 py-3">Description</th>
+                  <th className="px-4 py-3 whitespace-nowrap w-24 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('priority')}>
                     <div className="flex items-center gap-1">Priority <SortIcon field="priority" /></div>
                   </th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('assignee')}>
+                  <th className="px-4 py-3 whitespace-nowrap w-32 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('assignee')}>
                     <div className="flex items-center gap-1">Assignee <SortIcon field="assignee" /></div>
                   </th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('bldg_name')}>
+                  <th className="px-4 py-3 whitespace-nowrap w-40 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('bldg_name')}>
                     <div className="flex items-center gap-1">Building <SortIcon field="bldg_name" /></div>
                   </th>
-                  <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('wo_type')}>
+                  <th className="px-4 py-3 whitespace-nowrap w-24 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('wo_type')}>
                     <div className="flex items-center gap-1">Type <SortIcon field="wo_type" /></div>
                   </th>
-                   <th className="px-4 py-3 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('date_reported')}>
+                   <th className="px-4 py-3 whitespace-nowrap w-28 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('date_reported')}>
                     <div className="flex items-center gap-1">Reported <SortIcon field="date_reported" /></div>
                   </th>
-                  <th className="px-4 py-3">Contact</th>
+                  <th className="px-4 py-3 whitespace-nowrap w-32">Contact</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1074,7 +1074,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                       <StatusBadge status={wo.status} />
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                       <div className="truncate max-w-[250px]" title={wo.description}>
+                       <div className="whitespace-normal break-words min-w-[300px]" title={wo.description}>
                          {wo.description || <span className="text-slate-300 italic">No description</span>}
                        </div>
                     </td>
