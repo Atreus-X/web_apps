@@ -334,7 +334,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [buildings, setBuildings] = useState<BuildingInfo[]>([]); 
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState<keyof Project>('name');
+  const [sortField, setSortField] = useState<keyof Project>('state');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showCompleted, setShowCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
