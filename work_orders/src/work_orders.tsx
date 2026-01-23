@@ -521,8 +521,11 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
         const s = wo.status.toUpperCase();
         if (['COMPLETE', 'DONE'].includes(s)) {
             complete++;
-        } else if (s{
+        } else if (s === 'WINVOICE-C') {
+            wait++;          
         } else {
+            open++;
+        }
     });
 
     return { total, open, wait, complete };
