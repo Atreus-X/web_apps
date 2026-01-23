@@ -521,12 +521,8 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
         const s = wo.status.toUpperCase();
         if (['COMPLETE', 'DONE'].includes(s)) {
             complete++;
-        } else if (s.startsWith('WAIT') || ['QUOTE-RECVD', 'WINVOICE-C'].includes(s)) {
-            wait++;
-        } else if (!['CANCELLED', 'HIDE', 'UNKNOWN'].includes(s)) {
-            // Assuming everything else that isn't explicitly cancelled/hidden is "Open"
-            open++;
-        }
+        } else if (s{
+        } else {
     });
 
     return { total, open, wait, complete };
