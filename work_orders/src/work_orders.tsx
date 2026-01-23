@@ -32,13 +32,13 @@ import {
   RotateCcw,
   Wifi,
   ServerCrash,
-  AlertTriangle
+  AlertTriangle,
+  KeyRound
 } from 'lucide-react';
-// @ts-ignore
-import PocketBase from 'https://unpkg.com/pocketbase@0.21.3/dist/pocketbase.es.mjs';
+import PocketBase from 'pocketbase';
 
 // --- Configuration ---
-const PB_URL = 'https://wchrestay-ubuntu.lan.local.cmu.edu/pocketbase';
+const PB_URL = import.meta.env.VITE_PB_URL;
 const COLLECTION_NAME = 'work_orders';
 
 // --- Types & Interfaces ---
@@ -272,12 +272,23 @@ const WOTypeTooltip = ({ type }: { type: string }) => {
 
 function WorkOrderManagerInner({ pb }: { pb: any }) {
   // --- Auth State ---
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [showLoginModal, setShowLoginModal] = useState(true);
-  const [authError, setAuthError] = useState('');
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [user, setUser] = useState(() => {
+      if (pb.authStore.isValid && pb.authStore.model) {
+          if (!pb.authStore.model.email) return null;
+          return pb.authStore.model;
+      }
+      return null;
+  });
+  const [loginEmail, setLoginEmail] = useState(''); 
+  const [registerEmail, setRegisterEmail] = useState(''); 
+  const [registerName, setRegisterName] = useState(''); 
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [authMode, setAuthMode] = useState('login'); 
+  const [authMessage, setAuthMessage] = useState<{ type: 'error' | 'success' | '', text: string }>({ type: '', text: '' });
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const currentUser = user?.name || user?.email;
 
   // --- App State ---
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -300,31 +311,32 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Data Subscription ---
+  // --- Auth & Data Subscription ---
   useEffect(() => {
-    // Check initial auth state
-    if (pb.authStore.isValid) {
-      const model = pb.authStore.model;
-      const displayName = model?.name || model?.email || model?.username || 'User';
-      setCurrentUser(displayName);
-      setShowLoginModal(false);
-      loadData();
-    } else {
-      setCurrentUser(null);
-      setShowLoginModal(true);
-    }
-
-    // Subscribe to auth changes
-    const unsubscribe = pb.authStore.onChange((token: any, model: any) => {
-        if (pb.authStore.isValid && model) {
-            setCurrentUser(model.name || model.email);
-        } else {
-            setCurrentUser(null);
-        }
-    });
-
-    return () => unsubscribe();
+      const unsubscribe = pb.authStore.onChange((token: any, model: any) => { 
+          if (!pb.authStore.isValid || !model || !model.email) {
+              setUser(null);
+          } else {
+              setUser(model); 
+          }
+      }); 
+      return () => unsubscribe(); 
   }, [pb]);
+
+  // Sanity Check
+  useEffect(() => {
+      if (user && (!user.id || !user.email)) {
+          console.warn("Detected corrupt or invalid session. Forcing logout.");
+          pb.authStore.clear();
+          setUser(null);
+      }
+  }, [user, pb]);
+
+  useEffect(() => {
+    if (user && user.approved !== false) {
+        loadData();
+    }
+  }, [user]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -333,31 +345,43 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
       setWorkOrders(res as WorkOrder[]);
     } catch (err: any) {
       console.error("PB Load Error:", err);
-      if (err.status === 401 || err.status === 403 || err.status === 0) {
-        setShowLoginModal(true);
-      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsAuthLoading(true);
-    setAuthError('');
+    e.preventDefault(); 
+    setAuthMessage({ type: '', text: '' });
+    setAuthLoading(true); 
     
-    try {
-      await pb.collection('users').authWithPassword(loginEmail, loginPassword);
-      const model = pb.authStore.model;
-      const displayName = model?.name || model?.email || model?.username || 'User';
-      setCurrentUser(displayName);
-      setShowLoginModal(false);
-      loadData();
-    } catch (err) {
-      setAuthError('Invalid email or password.');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    try { 
+      await pb.collection('users').authWithPassword(loginEmail, password); 
+    } catch (err: any) { 
+      console.error("Login failed", err);
+      const msg = err.message || 'Invalid login credentials.';
+      setAuthMessage({ type: 'error', text: msg }); 
     } finally {
-      setIsAuthLoading(false);
+        setAuthLoading(false); 
     }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault(); setAuthMessage({ type: '', text: '' });
+    if (password !== passwordConfirm) { setAuthMessage({ type: 'error', text: 'Passwords do not match' }); return; }
+    try {
+        await pb.collection('users').create({ email: registerEmail, name: registerName, password, passwordConfirm, emailVisibility: true, role: 'user', approved: false });
+        setAuthMessage({ type: 'success', text: 'Account created! Pending admin approval.' });
+        setTimeout(() => setAuthMode('login'), 2000);
+    } catch (err: any) { setAuthMessage({ type: 'error', text: err.message || 'Failed.' }); }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault(); setAuthMessage({ type: '', text: '' });
+    try { await pb.collection('users').requestPasswordReset(loginEmail); setAuthMessage({ type: 'success', text: 'Reset email sent (if account exists).' }); } 
+    catch (err: any) { setAuthMessage({ type: 'error', text: err.message || 'Failed.' }); }
   };
 
   const handleLogout = () => {
@@ -657,6 +681,61 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
 
   // --- Render ---
 
+  // --- Auth Screen ---
+  if (!user || user.approved === false) {
+     return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="flex justify-center text-indigo-600"><Briefcase className="w-12 h-12" /></div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Work Orders Login</h2>
+        </div>
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            {user && user.approved === false ? (
+               <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4"><Clock className="h-6 w-6 text-yellow-600" /></div>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Approval Pending</h3>
+                  <button onClick={handleLogout} className="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Sign Out</button>
+               </div>
+            ) : (
+                authMode === 'login' ? (
+                <form className="space-y-6" onSubmit={handleLogin}>
+                    <div><label className="block text-sm font-medium text-gray-700">Email Address</label><input type="email" required value={loginEmail} onChange={e => setLoginEmail(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="user@example.com" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700">Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" /></div>
+                    {authMessage.text && <div className="text-red-600 text-sm">{authMessage.text}</div>}
+                    <button type="submit" disabled={authLoading} className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md flex items-center justify-center gap-2 disabled:opacity-70">
+                        {authLoading ? <><Loader2 className="w-4 h-4 animate-spin"/> Signing In...</> : 'Sign In'}
+                    </button>
+                    <div className="flex justify-between text-sm mt-4">
+                        <button type="button" onClick={() => setAuthMode('register')} className="text-indigo-600">Create Account</button>
+                        <button type="button" onClick={() => setAuthMode('reset')} className="text-gray-500 flex items-center gap-1"><KeyRound className="w-4 h-4" /> Forgot Password?</button>
+                    </div>
+                </form>
+                ) : authMode === 'register' ? (
+                <form className="space-y-6" onSubmit={handleRegister}>
+                    <div><label className="block text-sm font-medium text-gray-700">Full Name</label><input type="text" required value={registerName} onChange={e => setRegisterName(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="John Doe" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700">Email Address</label><input type="email" required value={registerEmail} onChange={e => setRegisterEmail(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700">Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700">Confirm Password</label><input type="password" required value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" /></div>
+                    {authMessage.text && <div className="text-red-600 text-sm">{authMessage.text}</div>}
+                    <button type="submit" className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md">Register</button>
+                    <button type="button" onClick={() => setAuthMode('login')} className="w-full text-center text-sm text-gray-600 mt-2">Back</button>
+                </form>
+                ) : (
+                <form className="space-y-6" onSubmit={handleResetPassword}>
+                    <div><label className="block text-sm font-medium text-gray-700">Email Address</label><input type="email" required value={loginEmail} onChange={e => setLoginEmail(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" /></div>
+                    {authMessage.text && <div className="text-green-600 text-sm">{authMessage.text}</div>}
+                    <button type="submit" className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md">Reset</button>
+                    <button type="button" onClick={() => setAuthMode('login')} className="w-full text-center text-sm text-gray-600 mt-2">Back</button>
+                </form>
+                )
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-10">
       
@@ -913,58 +992,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
           )}
         </div>
       </div>
-
-      {/* Login Modal */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 animate-in fade-in zoom-in-95">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
-                <Lock className="w-8 h-8" />
-              </div>
-            </div>
-            <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">Login Required</h2>
-            <p className="text-center text-slate-500 mb-6">Please sign in with your account to access the connected database.</p>
-            
-            {authError && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                {authError}
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                <input 
-                  type="email" 
-                  value={loginEmail}
-                  onChange={e => setLoginEmail(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                <input 
-                  type="password" 
-                  value={loginPassword}
-                  onChange={e => setLoginPassword(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  required
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={isAuthLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2"
-              >
-                {isAuthLoading ? 'Authenticating...' : 'Sign In'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Edit Modal */}
       {showBulkModal && (
