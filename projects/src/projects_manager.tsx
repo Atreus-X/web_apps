@@ -327,8 +327,12 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await pb.collection('projects').getFullList({ sort: '-created' });
-      const mapped: Project[] = res.map((r: any) => ({
+      const [projectsRes, buildingsRes] = await Promise.all([
+        pb.collection('projects').getFullList({ sort: '-created' }),
+        pb.collection('buildings').getFullList({ sort: 'bldg_name' }).catch((e: any) => { console.warn("Buildings load failed", e); return []; })
+      ]);
+
+      const mapped: Project[] = projectsRes.map((r: any) => ({
         id: r.id,
         name: r.name, 
         building: Array.isArray(r.building) ? r.building : (r.building ? [r.building] : []),
@@ -347,6 +351,11 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
         last_modified_at: r.updated || ''
       }));
       setProjects(mapped);
+
+      const bldgNames = buildingsRes.map((b: any) => b.bldg_name).filter(Boolean);
+      if (bldgNames.length > 0) {
+          setBuildings([...new Set(bldgNames)].sort() as string[]);
+      }
     } catch (err) {
       console.error("PB Load Error:", err);
     } finally {
@@ -393,23 +402,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
     localStorage.clear();
     window.location.reload();
   };
-
-  // --- CSV Fetching ---
-  useEffect(() => {
-    const fetchBuildings = async () => {
-      try {
-        const response = await fetch('../data/buildings.csv');
-        if (!response.ok) throw new Error('Network response was not ok');
-        const text = await response.text();
-        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-        const buildingList = lines.map(line => line.split(',')[0]);
-        if (buildingList.length > 0) setBuildings(buildingList);
-      } catch (error) {
-        console.warn("Could not fetch buildings.csv (using defaults):", error);
-      }
-    };
-    fetchBuildings();
-  }, []);
 
   const formatDateForPB = (dateStr: string): string => {
     if (!dateStr) return '';
