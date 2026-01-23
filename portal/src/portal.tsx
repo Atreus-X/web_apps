@@ -23,6 +23,8 @@ import {
   Clock as ClockIcon, // For Hours App (Lucide equivalent of fa-clock)
   FolderOpen as FolderOpenIcon, // For FileZilla (Lucide equivalent of fa-folder-open)
   Server, // For Webmin
+  Network, // For BACnet
+  Thermometer, // For HVAC
 } from 'lucide-react';
 
 // --- Configuration ---
@@ -112,10 +114,12 @@ function PortalAppInner({ pb }: { pb: any }) {
   // --- Hardcoded Applications (from original index.php) ---
   useEffect(() => {
     setApps([
+      { name: 'BACnet Instances', url: '/public/misc/bacnet_instance.html', icon: Network, color: 'bg-violet-500', desc: 'BACnet Instances' },
+      { name: 'BAS Hourly Logs', url: '/public/misc/bas_hour_tracking.php', icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' },
+      { name: 'HVAC Analysis', url: '/public/misc/hvac_analysis.html', icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
       { name: 'Parts Inventory', url: '/public/parts/', icon: Briefcase, color: 'bg-emerald-500', desc: 'Parts Inventory Tracker' },    
       { name: 'Projects Manager', url: '/public/projects/', icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
       { name: 'Work Orders Tracker', url: '/public/work_orders/', icon: Copy, color: 'bg-sky-500', desc: 'Work Orders Tracker' },
-      { name: 'BAS Hourly Logs', url: '/public/bas_hour_tracking.php', icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' }
     ]);
   }, []);
 
