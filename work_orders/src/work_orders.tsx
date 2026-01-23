@@ -217,16 +217,40 @@ const PriorityBadge = ({ priority }: { priority: string }) => {
   </span>;
 };
 
-const ContactTooltip = ({ abbr, name, contacts }: { abbr: string, name: string, contacts: ContactInfo[] }) => {
+const ContactTooltip = ({ abbr, name, contacts, children }: { abbr: string, name: string, contacts: ContactInfo[], children?: React.ReactNode }) => {
   const contact = contacts.find(c => c.abbr === abbr) || contacts.find(c => c.name === name);
+  const [isHovering, setIsHovering] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCoords({
+      top: rect.top - 5,
+      left: rect.left + rect.width / 2
+    });
+    setIsHovering(true);
+  };
 
   return (
-    <div className="group relative flex flex-col cursor-help">
-      <span>{name}</span>
-      {abbr && abbr !== name && <span className="text-[10px] text-slate-400">{abbr}</span>}
+    <>
+      <div 
+        className="group relative flex flex-col cursor-help"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        {children ? children : (
+          <>
+            <span>{name}</span>
+            {abbr && abbr !== name && <span className="text-[10px] text-slate-400">{abbr}</span>}
+          </>
+        )}
+      </div>
       
-      {contact && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+      {isHovering && contact && createPortal(
+        <div 
+          className="fixed z-[9999] w-56 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+          style={{ top: coords.top, left: coords.left, transform: 'translate(-50%, -100%)' }}
+        >
           <div className="font-bold text-sm mb-1 text-indigo-300">{contact.name}</div>
           <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
             <span className="text-slate-400">Phone:</span>
@@ -239,28 +263,48 @@ const ContactTooltip = ({ abbr, name, contacts }: { abbr: string, name: string, 
             <span className="font-mono text-xs">{contact.abbr}</span>
           </div>
           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 
 const WOTypeTooltip = ({ type }: { type: string }) => {
   const definition = WO_TYPE_DEFINITIONS[type];
+  const [isHovering, setIsHovering] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
 
   if (!definition) {
       return <span className="text-slate-600 text-xs">{type || '-'}</span>;
   }
 
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCoords({
+      top: rect.top - 5,
+      left: rect.left + rect.width / 2
+    });
+    setIsHovering(true);
+  };
+
   return (
-    <div className="group relative flex flex-col cursor-help items-start">
-      <span className="text-slate-700 font-medium bg-slate-100 px-2 py-1 rounded inline-block text-xs border border-slate-200">{type}</span>
-      
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-800 text-white text-xs p-2 rounded-lg shadow-xl z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200 text-center">
-        {definition}
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+    <>
+      <div className="cursor-help inline-block" onMouseEnter={handleMouseEnter} onMouseLeave={() => setIsHovering(false)}>
+        <span className="text-slate-700 font-medium bg-slate-100 px-2 py-1 rounded inline-block text-xs border border-slate-200">{type}</span>
       </div>
-    </div>
+      
+      {isHovering && createPortal(
+        <div 
+          className="fixed z-[9999] w-48 bg-slate-800 text-white text-xs p-2 rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-200 text-center"
+          style={{ top: coords.top, left: coords.left, transform: 'translate(-50%, -100%)' }}
+        >
+          {definition}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };
 
@@ -1211,10 +1255,12 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                         onChange={e => setSelectedWO({...selectedWO, contact_name: e.target.value})}
                       />
                     ) : (
-                      <div className="flex items-center gap-2 text-slate-800">
-                         <User className="w-4 h-4 text-slate-400" />
-                         {selectedWO.contact_name || '-'}
-                      </div>
+                      <ContactTooltip abbr={selectedWO.contact_abbr} name={selectedWO.contact_name} contacts={contacts}>
+                        <div className="flex items-center gap-2 text-slate-800">
+                           <User className="w-4 h-4 text-slate-400" />
+                           {selectedWO.contact_name || '-'}
+                        </div>
+                      </ContactTooltip>
                     )}
                   </div>
 
