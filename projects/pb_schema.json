@@ -1,0 +1,104 @@
+[
+    {
+        "name": "clients",
+        "type": "base",
+        "schema": [
+            {
+                "name": "name",
+                "type": "text",
+                "required": true,
+                "options": { "min": 2, "max": null, "pattern": "" }
+            },
+            {
+                "name": "email",
+                "type": "email",
+                "required": false,
+                "options": { "exceptDomains": null, "onlyDomains": null }
+            },
+            {
+                "name": "avatar",
+                "type": "file",
+                "required": false,
+                "options": { "maxSelect": 1, "maxSize": 5242880, "mimeTypes": ["image/jpeg", "image/png", "image/svg+xml"], "thumbs": [] }
+            }
+        ]
+    },
+    {
+        "name": "projects",
+        "type": "base",
+        "schema": [
+            {
+                "name": "title",
+                "type": "text",
+                "required": true,
+                "options": { "min": 2, "max": null, "pattern": "" }
+            },
+            {
+                "name": "client_id",
+                "type": "relation",
+                "required": true,
+                "options": { "collectionId": "clients", "cascadeDelete": false, "minSelect": null, "maxSelect": 1, "displayFields": null }
+            },
+            {
+                "name": "status",
+                "type": "select",
+                "required": true,
+                "options": { "maxSelect": 1, "values": ["planning", "active", "review", "completed"] }
+            },
+            {
+                "name": "deadline",
+                "type": "date",
+                "required": false,
+                "options": { "min": "", "max": "" }
+            },
+            {
+                "name": "description",
+                "type": "text",
+                "required": false,
+                "options": { "min": null, "max": null, "pattern": "" }
+            },
+            {
+                "name": "budget",
+                "type": "number",
+                "required": false,
+                "options": { "min": null, "max": null }
+            }
+        ]
+    },
+    {
+        "name": "tasks",
+        "type": "base",
+        "schema": [
+            {
+                "name": "title",
+                "type": "text",
+                "required": true,
+                "options": { "min": 2, "max": null, "pattern": "" }
+            },
+            {
+                "name": "project_id",
+                "type": "relation",
+                "required": true,
+                "options": { "collectionId": "projects", "cascadeDelete": true, "minSelect": null, "maxSelect": 1, "displayFields": null }
+            },
+            {
+                "name": "priority",
+                "type": "select",
+                "required": true,
+                "options": { "maxSelect": 1, "values": ["low", "medium", "high", "critical"] }
+            },
+            {
+                "name": "status",
+                "type": "select",
+                "required": true,
+                "options": { "maxSelect": 1, "values": ["todo", "in_progress", "blocked", "done"] }
+            },
+            {
+                "name": "assignee",
+                "type": "text",
+                "required": false,
+                "options": { "min": null, "max": null, "pattern": "" }
+            }
+        ]
+    }
+]

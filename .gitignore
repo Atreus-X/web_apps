@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+*.pyc
+
+# Environment & Logs
+.env
+.env.local
+*.log
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
