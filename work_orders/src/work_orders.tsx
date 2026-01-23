@@ -120,10 +120,6 @@ const WO_TYPE_DEFINITIONS: Record<string, string> = {
 
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Critical'];
 
-const CONTACT_DATA: ContactInfo[] = [
-  { abbr: "BG2M", name: "Joe Smith", phone: "(412) 444-4444", zone: "West Zone", supervisor: "CERV" }
-];
-
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component<any, any> {
   constructor(props: any) {
@@ -221,8 +217,8 @@ const PriorityBadge = ({ priority }: { priority: string }) => {
   </span>;
 };
 
-const ContactTooltip = ({ abbr, name }: { abbr: string, name: string }) => {
-  const contact = CONTACT_DATA.find(c => c.abbr === abbr) || CONTACT_DATA.find(c => c.name === name);
+const ContactTooltip = ({ abbr, name, contacts }: { abbr: string, name: string, contacts: ContactInfo[] }) => {
+  const contact = contacts.find(c => c.abbr === abbr) || contacts.find(c => c.name === name);
 
   return (
     <div className="group relative flex flex-col cursor-help">
@@ -292,6 +288,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
 
   // --- App State ---
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof WorkOrder>('date_reported');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -341,8 +338,13 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await pb.collection(COLLECTION_NAME).getFullList({ sort: '-created' });
-      setWorkOrders(res as WorkOrder[]);
+      const [woRes, contactsRes] = await Promise.all([
+        pb.collection(COLLECTION_NAME).getFullList({ sort: '-created' }),
+        pb.collection('contacts').getFullList().catch((e: any) => { console.warn("Contacts load failed", e); return []; })
+      ]);
+      
+      setWorkOrders(woRes as WorkOrder[]);
+      setContacts(contactsRes as ContactInfo[]);
     } catch (err: any) {
       console.error("PB Load Error:", err);
     } finally {
@@ -975,7 +977,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                       {wo.date_reported ? new Date(wo.date_reported).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-4 py-3 text-slate-600 text-xs">
-                       <ContactTooltip abbr={wo.contact_abbr} name={wo.contact_name} />
+                       <ContactTooltip abbr={wo.contact_abbr} name={wo.contact_name} contacts={contacts} />
                     </td>
                   </tr>
                 )})}
