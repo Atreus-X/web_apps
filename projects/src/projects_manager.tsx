@@ -116,20 +116,20 @@ const getAvatarColor = (name: string) => {
 
 const StateBadge = ({ state }: { state: ProjectState }) => {
   const styles: Record<ProjectState, string> = {
-    'Approved': 'bg-teal-100 text-teal-700 border-teal-200',
-    'Cancelled': 'bg-red-100 text-red-700 border-red-200',
-    'Complete': 'bg-slate-100 text-slate-600 border-slate-200 line-through decoration-slate-400',
-    'Deferred': 'bg-zinc-100 text-zinc-600 border-zinc-200',
-    'In-Progress': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'Approved': 'bg-green-100 text-green-700 border-green-200',
+    'Cancelled': 'bg-red-100 text-red-700 border-red-200 line-through',
+    'Complete': 'bg-green-100 text-green-700 border-green-200',
+    'Deferred': 'bg-slate-100 text-slate-600 border-slate-200',
+    'In-Progress': 'bg-blue-100 text-blue-700 border-blue-200',
     'Paperwork submitted': 'bg-blue-100 text-blue-700 border-blue-200',
-    'Proposed': 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200', 
-    'Quote Received': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    'Sent PAF to contractor': 'bg-cyan-100 text-cyan-700 border-cyan-200',
-    'Sent to Storeroom': 'bg-orange-100 text-orange-700 border-orange-200',
+    'Proposed': 'bg-slate-100 text-slate-600 border-slate-200',
+    'Quote Received': 'bg-amber-100 text-amber-700 border-amber-200',
+    'Sent PAF to contractor': 'bg-blue-100 text-blue-700 border-blue-200',
+    'Sent to Storeroom': 'bg-amber-100 text-amber-700 border-amber-200',
     'Waiting for Parts': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Waiting for Project Start': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'Waiting for Quotations': 'bg-purple-100 text-purple-700 border-purple-200',
-    'Waiting for Invoice': 'bg-pink-100 text-pink-700 border-pink-200',
+    'Waiting for Project Start': 'bg-amber-100 text-amber-700 border-amber-200',
+    'Waiting for Quotations': 'bg-amber-100 text-amber-700 border-amber-200',
+    'Waiting for Invoice': 'bg-amber-100 text-amber-700 border-amber-200',
   };
 
   return (
