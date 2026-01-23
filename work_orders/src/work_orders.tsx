@@ -84,6 +84,9 @@ interface BuildingInfo {
   bldg_name: string;
   bldg_cmu_abbr: string;
   bldg_max_abbr: string;
+  bldg_zone?: string;
+  bldg_zone_supervisor?: string;
+  bldg_number?: string;
 }
 
 // --- Constants ---
@@ -307,6 +310,58 @@ const WOTypeTooltip = ({ type }: { type: string }) => {
           style={{ top: coords.top, left: coords.left, transform: 'translate(-50%, -100%)' }}
         >
           {definition}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
+const BuildingTooltip = ({ abbr, name, buildings }: { abbr: string, name: string, buildings: BuildingInfo[] }) => {
+  const building = buildings.find(b => 
+    (b.bldg_cmu_abbr === abbr) || 
+    (b.bldg_max_abbr === abbr) || 
+    (b.bldg_name === name)
+  );
+  
+  const [isHovering, setIsHovering] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCoords({
+      top: rect.top - 5,
+      left: rect.left + rect.width / 2
+    });
+    setIsHovering(true);
+  };
+
+  const display = abbr || name || '-';
+
+  return (
+    <>
+      <div 
+        className="cursor-help inline-block" 
+        onMouseEnter={handleMouseEnter} 
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        <span className="font-bold text-slate-700 bg-slate-100 px-1.5 rounded text-xs">{display}</span>
+      </div>
+      
+      {isHovering && building && createPortal(
+        <div 
+          className="fixed z-[9999] w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+          style={{ top: coords.top, left: coords.left, transform: 'translate(-50%, -100%)' }}
+        >
+          <div className="font-bold text-sm mb-1 text-indigo-300">{building.bldg_name}</div>
+          <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+            <span className="text-slate-400">CMU Abbr:</span><span className="font-mono">{building.bldg_cmu_abbr || '-'}</span>
+            <span className="text-slate-400">Maximo Abbr:</span><span className="font-mono">{building.bldg_max_abbr || '-'}</span>
+            {building.bldg_number && <><span className="text-slate-400">Number:</span><span>{building.bldg_number}</span></>}
+            {building.bldg_zone && <><span className="text-slate-400">Zone:</span><span>{building.bldg_zone}</span></>}
+            {building.bldg_zone_supervisor && <><span className="text-slate-400">Supervisor:</span><span>{building.bldg_zone_supervisor}</span></>}
+          </div>
           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
         </div>,
         document.body
@@ -1015,14 +1070,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {wo.bldg_abbr ? (
-                         <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-700 bg-slate-100 px-1.5 rounded text-xs">{wo.bldg_abbr}</span>
-                            <span className="text-xs text-slate-500 truncate max-w-[100px]">{wo.bldg_name}</span>
-                         </div>
-                      ) : (
-                         <span className="text-slate-300">-</span>
-                      )}
+                      <BuildingTooltip abbr={wo.bldg_abbr} name={wo.bldg_name} buildings={buildings} />
                     </td>
                     <td className="px-4 py-3 text-slate-600 text-xs">
                       <WOTypeTooltip type={wo.wo_type} />
