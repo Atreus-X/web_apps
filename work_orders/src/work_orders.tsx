@@ -561,11 +561,11 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
         <head>
           <title>Work Orders Report</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; color: #1f2937; font-size: 12px; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; color: #1f2937; font-size: 10px; }
             h1 { text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: 800; color: #111827; }
-            .header-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th { background-color: #f3f4f6; color: #374151; font-weight: 700; text-transform: uppercase; padding: 6px 8px; text-align: left; border: 1px solid #e5e7eb; white-space: nowrap; font-size: 10px; }
+            .header-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 10px; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+            table { width: auto; border-collapse: collapse; }
+            th { background-color: #f3f4f6; color: #374151; font-weight: 700; text-transform: uppercase; padding: 6px 8px; text-align: left; border: 1px solid #e5e7eb; white-space: nowrap; font-size: 9px; }
             td { padding: 6px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
             tr:nth-child(even) { background-color: #f9fafb; }
             .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 9px; text-transform: uppercase; border: 1px solid; }
