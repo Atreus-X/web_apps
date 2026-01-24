@@ -119,7 +119,7 @@ function PortalAppInner({ pb }: { pb: any }) {
       { name: 'HVAC Analysis', url: '/public/misc/hvac_analysis.html', icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
       { name: 'Parts Inventory', url: '/public/parts/', icon: Briefcase, color: 'bg-emerald-500', desc: 'Parts Inventory Tracker' },    
       { name: 'Projects Manager', url: '/public/projects/', icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
-      { name: 'Work Orders Tracker', url: '/public/work_orders/', icon: Copy, color: 'bg-sky-500', desc: 'Work Orders Tracker' },
+      { name: 'Work Orders Tracker', url: '/public/work_orders/', icon: Copy, color: 'bg-slategray-500', desc: 'Work Orders Tracker' },
     ]);
   }, []);
 
@@ -219,7 +219,7 @@ function PortalAppInner({ pb }: { pb: any }) {
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex justify-center text-indigo-600"><Cpu className="w-12 h-12" /></div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Lab Portal Login</h2>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Web-Apps Portal Login</h2>
         </div>
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
@@ -274,7 +274,7 @@ function PortalAppInner({ pb }: { pb: any }) {
       <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 p-2 rounded-lg text-white"><Cpu className="w-5 h-5" /></div>
-          <h1 className="font-bold text-slate-800">Lab Portal</h1>
+          <h1 className="font-bold text-slate-800">Web-Apps Portal</h1>
         </div>
         <div className="text-right">
           <p className="text-sm font-bold text-blue-600">{currentUser}</p>
