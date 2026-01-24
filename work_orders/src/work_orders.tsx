@@ -73,11 +73,21 @@ interface BulkUpdatePayload {
 }
 
 interface ContactInfo {
+  id: string;
   abbr: string;
   name: string;
   phone: string;
   zone: string;
   supervisor: string;
+}
+
+interface AssigneeInfo {
+  id: string;
+  abbr: string;
+  name: string;
+  cmu_email?: string;
+  other_email?: string;
+  phone?: string;
 }
 
 interface BuildingInfo {
@@ -289,6 +299,50 @@ const ContactTooltip = ({ abbr, name, contacts, children }: { abbr: string, name
   );
 };
 
+const AssigneeTooltip = ({ name, assignees, children }: { name: string, assignees: AssigneeInfo[], children?: React.ReactNode }) => {
+  const assignee = assignees.find(a => a.name === name || a.abbr === name);
+  const [isHovering, setIsHovering] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCoords({
+      top: rect.top - 5,
+      left: rect.left + rect.width / 2
+    });
+    setIsHovering(true);
+  };
+
+  return (
+    <>
+      <div 
+        className="group relative flex flex-col cursor-help"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        {children ? children : <span>{name}</span>}
+      </div>
+      
+      {isHovering && assignee && createPortal(
+        <div 
+          className="fixed z-[9999] w-64 bg-slate-800 text-white text-xs p-3 rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+          style={{ top: coords.top, left: coords.left, transform: 'translate(-50%, -100%)' }}
+        >
+          <div className="font-bold text-sm mb-1 text-indigo-300">{assignee.name}</div>
+          <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+            <span className="text-slate-400">Abbr:</span><span className="font-mono">{assignee.abbr}</span>
+            {assignee.cmu_email && <><span className="text-slate-400">CMU Email:</span><span>{assignee.cmu_email}</span></>}
+            {assignee.other_email && <><span className="text-slate-400">Other Email:</span><span>{assignee.other_email}</span></>}
+            {assignee.phone && <><span className="text-slate-400">Phone:</span><span>{assignee.phone}</span></>}
+          </div>
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
 const WOTypeTooltip = ({ type }: { type: string }) => {
   const definition = WO_TYPE_DEFINITIONS[type];
   const [isHovering, setIsHovering] = useState(false);
@@ -405,6 +459,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [buildings, setBuildings] = useState<BuildingInfo[]>([]);
+  const [assignees, setAssignees] = useState<AssigneeInfo[]>([]);
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<keyof WorkOrder>('status');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -455,14 +510,18 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
     setIsLoading(true);
     try {
       const [woRes, contactsRes, buildingsRes] = await Promise.all([
+      const [woRes, contactsRes, buildingsRes, assigneesRes] = await Promise.all([
         pb.collection(COLLECTION_NAME).getFullList({ sort: '-created' }),
         pb.collection('contacts').getFullList().catch((e: any) => { console.warn("Contacts load failed", e); return []; }),
         pb.collection('buildings').getFullList().catch((e: any) => { console.warn("Buildings load failed", e); return []; })
+        pb.collection('buildings').getFullList().catch((e: any) => { console.warn("Buildings load failed", e); return []; }),
+        pb.collection('assignees').getFullList().catch((e: any) => { console.warn("Assignees load failed", e); return []; })
       ]);
       
       setWorkOrders(woRes as WorkOrder[]);
       setContacts(contactsRes as ContactInfo[]);
       setBuildings(buildingsRes as BuildingInfo[]);
+      setAssignees(assigneesRes as AssigneeInfo[]);
     } catch (err: any) {
       console.error("PB Load Error:", err);
     } finally {
@@ -1205,12 +1264,14 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                     <td className="px-4 py-3 text-slate-600">
                       <div className="flex items-center gap-2">
                         {wo.assignee ? (
-                          <>
-                             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${getAvatarColor(wo.assignee)}`}>
-                               {wo.assignee.charAt(0)}
-                             </div>
-                             <span className="text-xs">{wo.assignee}</span>
-                          </>
+                          <AssigneeTooltip name={wo.assignee} assignees={assignees}>
+                            <div className="flex items-center gap-2">
+                               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${getAvatarColor(wo.assignee)}`}>
+                                 {wo.assignee.charAt(0)}
+                               </div>
+                               <span className="text-xs">{wo.assignee}</span>
+                            </div>
+                          </AssigneeTooltip>
                         ) : (
                           <span className="text-slate-400 text-xs italic">Unassigned</span>
                         )}
@@ -1374,11 +1435,26 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                          onChange={e => setSelectedWO({...selectedWO, assignee: e.target.value})}
                          placeholder="Technician Name"
                        />
+                       <>
+                        <input 
+                          type="text" 
+                          list="assignees-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.assignee}
+                          onChange={e => setSelectedWO({...selectedWO, assignee: e.target.value})}
+                          placeholder="Technician Name"
+                        />
+                        <datalist id="assignees-list">
+                            {assignees.map(a => <option key={a.id} value={a.name}>{a.abbr}</option>)}
+                        </datalist>
+                       </>
                     ) : (
-                      <div className="flex items-center gap-2 text-slate-800">
-                        <User className="w-4 h-4 text-slate-400" />
-                        {selectedWO.assignee || 'Unassigned'}
-                      </div>
+                      <AssigneeTooltip name={selectedWO.assignee} assignees={assignees}>
+                        <div className="flex items-center gap-2 text-slate-800">
+                          <User className="w-4 h-4 text-slate-400" />
+                          {selectedWO.assignee || 'Unassigned'}
+                        </div>
+                      </AssigneeTooltip>
                     )}
                   </div>
 
@@ -1481,6 +1557,22 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                         value={selectedWO.contact_name}
                         onChange={e => setSelectedWO({...selectedWO, contact_name: e.target.value})}
                       />
+                      <>
+                        <input 
+                          type="text" 
+                          list="contact-names-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.contact_name}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = contacts.find(c => c.name === val);
+                              setSelectedWO(prev => ({...prev!, contact_name: val, contact_abbr: match ? match.abbr : prev!.contact_abbr}));
+                          }}
+                        />
+                        <datalist id="contact-names-list">
+                            {contacts.map(c => <option key={c.id} value={c.name} />)}
+                        </datalist>
+                      </>
                     ) : (
                       <ContactTooltip abbr={selectedWO.contact_abbr} name={selectedWO.contact_name} contacts={contacts}>
                         <div className="flex items-center gap-2 text-slate-800">
@@ -1500,6 +1592,22 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                         value={selectedWO.contact_abbr}
                         onChange={e => setSelectedWO({...selectedWO, contact_abbr: e.target.value})}
                       />
+                      <>
+                        <input 
+                          type="text" 
+                          list="contact-abbrs-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.contact_abbr}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = contacts.find(c => c.abbr === val);
+                              setSelectedWO(prev => ({...prev!, contact_abbr: val, contact_name: match ? match.name : prev!.contact_name}));
+                          }}
+                        />
+                        <datalist id="contact-abbrs-list">
+                            {contacts.map(c => <option key={c.id} value={c.abbr} />)}
+                        </datalist>
+                      </>
                     ) : (
                       <div className="text-slate-800 text-sm">{selectedWO.contact_abbr || '-'}</div>
                     )}
