@@ -359,7 +359,7 @@ ksort($summaryData);
         <div class="tab-content mb-5">
             <!-- TAB 1: SUMMARY -->
             <div class="tab-pane fade show active" id="summary-tab">
-                <?php $targetRate = ($currentUser === 'KKENNED' ? 2 : 1); $targetHrsPerWeek = $targetRate * 8; ?>
+                <?php $targetRate = ($currentUser === 'JGS3' ? 2 : 1); $targetHrsPerWeek = $targetRate * 8; ?>
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">Gen-Ops Monthly Comparison</h5>
                     <div class="info-card shadow-sm">User: <strong><?= htmlspecialchars($currentUser) ?></strong> <span class="mx-2 text-muted">|</span> Target: <strong><?= $targetRate ?> day<?= $targetRate > 1 ? 's' : '' ?>/week</strong> (<?= $targetHrsPerWeek ?>h)</div>
