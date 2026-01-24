@@ -761,8 +761,8 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   const handleCreateNew = () => {
     setSelectedWO({
       id: 'NEW',
-      wo_number: `WO-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
-      status: 'NEW',
+      wo_number: '',
+      status: 'APPROVED',
       assignee: '',
       priority: 'Medium',
       date_reported: new Date().toISOString().split('T')[0],
@@ -780,9 +780,16 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   };
 
   const openWO = (wo: WorkOrder) => {
+    let dateVal = '';
+    if (wo.date_reported) {
+        const d = new Date(wo.date_reported);
+        if (!isNaN(d.getTime())) {
+            dateVal = d.toISOString().split('T')[0];
+        }
+    }
     const formatted = { 
       ...wo, 
-      date_reported: wo.date_reported ? wo.date_reported.split('T')[0] : ''
+      date_reported: dateVal
     };
     setSelectedWO(formatted);
     setIsEditing(false);
