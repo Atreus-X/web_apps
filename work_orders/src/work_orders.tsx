@@ -650,7 +650,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
             <thead>
               <tr>
                 <th>WO #</th>
-                <th>Status</th>
+                <th style="text-align: center;">Status</th>
                 <th>Description</th>
                 <th>Priority</th>
                 <th>Assignee</th>
@@ -664,7 +664,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
               ${filteredData.map(wo => `
                 <tr>
                   <td class="mono nowrap" style="font-weight: 600;">${wo.wo_number}</td>
-                  <td class="nowrap"><span class="status-badge" style="${getStatusStyle(wo.status)}">${wo.status}</span></td>
+                  <td class="nowrap" style="text-align: center;"><span class="status-badge" style="${getStatusStyle(wo.status)}">${wo.status}</span></td>
                   <td>${wo.description || ''}</td>
                   <td class="nowrap">${wo.priority}</td>
                   <td class="nowrap">${wo.assignee || '-'}</td>
