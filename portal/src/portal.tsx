@@ -158,7 +158,7 @@ function PortalAppInner({ pb }: { pb: any }) {
     setFileFetchError(null);
     try {
       // This assumes you'll create a PHP endpoint at /api/files.php
-      const response = await fetch('../../api/files.php');
+      const response = await fetch('/public/api/files.php');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
