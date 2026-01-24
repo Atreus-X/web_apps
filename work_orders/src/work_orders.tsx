@@ -523,7 +523,9 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
             complete++;
         } else if (s === 'WINVOICE-C') {
             wait++;          
-        } else {
+        } else if (s === 'HIDE') {
+// Do nothing               
+          } else {
             open++;
         }
     });
