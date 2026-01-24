@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 
 // Configuration (should match your main index.php or be configurable)
 $ignore_items = ['.', '..', '.htaccess', 'index.php', 'data', 'config', 'api']; // Added 'api' to ignore
-$explorer_path = './public/'; // Path relative to the web_apps root
+$explorer_path = '../public/'; // Path relative to the web_apps root
 
 $files_list = [];
 

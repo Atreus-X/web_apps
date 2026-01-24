@@ -18,7 +18,7 @@ import {
   User, // For user display
   Database, // For PocketBase app link
   Briefcase, // For Parts App
-  Workflow, // For Projects App (DiagramProject replacement)a
+  Workflow, // For Projects App (DiagramProject replacement)
   Copy, // For Work Orders App (Lucide equivalent of fa-copy)
   Clock as ClockIcon, // For Hours App (Lucide equivalent of fa-clock)
   FolderOpen as FolderOpenIcon, // For FileZilla (Lucide equivalent of fa-folder-open)
@@ -158,7 +158,7 @@ function PortalAppInner({ pb }: { pb: any }) {
     setFileFetchError(null);
     try {
       // This assumes you'll create a PHP endpoint at /api/files.php
-      const response = await fetch('/api/files.php');
+      const response = await fetch('../../api/files.php');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
