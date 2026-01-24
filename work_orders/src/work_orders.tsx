@@ -509,11 +509,9 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [woRes, contactsRes, buildingsRes] = await Promise.all([
       const [woRes, contactsRes, buildingsRes, assigneesRes] = await Promise.all([
         pb.collection(COLLECTION_NAME).getFullList({ sort: '-created' }),
         pb.collection('contacts').getFullList().catch((e: any) => { console.warn("Contacts load failed", e); return []; }),
-        pb.collection('buildings').getFullList().catch((e: any) => { console.warn("Buildings load failed", e); return []; })
         pb.collection('buildings').getFullList().catch((e: any) => { console.warn("Buildings load failed", e); return []; }),
         pb.collection('assignees').getFullList().catch((e: any) => { console.warn("Assignees load failed", e); return []; })
       ]);
@@ -1428,13 +1426,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Assignee</label>
                     {isEditing ? (
-                       <input 
-                         type="text" 
-                         className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                         value={selectedWO.assignee}
-                         onChange={e => setSelectedWO({...selectedWO, assignee: e.target.value})}
-                         placeholder="Technician Name"
-                       />
                        <>
                         <input 
                           type="text" 
@@ -1551,12 +1542,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Contact Name</label>
                     {isEditing ? (
-                      <input 
-                        type="text" 
-                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={selectedWO.contact_name}
-                        onChange={e => setSelectedWO({...selectedWO, contact_name: e.target.value})}
-                      />
                       <>
                         <input 
                           type="text" 
@@ -1586,12 +1571,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                    <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Contact Abbr</label>
                     {isEditing ? (
-                      <input 
-                        type="text" 
-                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={selectedWO.contact_abbr}
-                        onChange={e => setSelectedWO({...selectedWO, contact_abbr: e.target.value})}
-                      />
                       <>
                         <input 
                           type="text" 
