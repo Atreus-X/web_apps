@@ -278,7 +278,7 @@ ksort($summaryData);
 
 <nav class="navbar navbar-dark navbar-custom">
     <div class="container d-flex justify-content-between align-items-center">
-        <a class="navbar-brand fw-bold" href="https://wchrestay-ubuntu.lan.local.cmu.edu/public/misc/bas_hour_tracking.php">BAS Hours Tracking (PocketBase)</a>
+        <a class="navbar-brand fw-bold" href="https://wchrestay-ubuntu.lan.local.cmu.edu/public/misc/bas_hour_tracking.php">BAS Controls Contractor - Hours Tracking</a>
         <div class="d-flex align-items-center">
             <?php if (!empty($availableUsers)): ?>
                 <form action="" method="post" class="d-flex align-items-center gap-2">
