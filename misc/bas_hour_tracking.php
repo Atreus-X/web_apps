@@ -16,6 +16,10 @@ function pb_request($method, $path, $data = null) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     
+    // Disable SSL verification for internal network
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+    
     if ($data) {
         $payload = json_encode($data);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
@@ -24,6 +28,12 @@ function pb_request($method, $path, $data = null) {
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    if ($response === false) {
+        $err = curl_error($ch);
+        curl_close($ch);
+        return ['error' => true, 'code' => 0, 'message' => "Curl Error: $err"];
+    }
     curl_close($ch);
 
     if ($httpCode >= 400) {
@@ -122,6 +132,8 @@ $filterFY = $_SESSION['filter_fy'] ?? '';
 $filterStart = $_SESSION['filter_start'] ?? '';
 $filterEnd = $_SESSION['filter_end'] ?? '';
 
+$uploadError = '';
+
 // --- HANDLE UPLOAD ---
 if (isset($_FILES['csv_file'])) {
     if (($handle = fopen($_FILES['csv_file']['tmp_name'], "r")) !== FALSE) {
@@ -154,12 +166,24 @@ if (isset($_FILES['csv_file'])) {
             // so we'd typically loop or use a filter. For this internal tool, we overwrite by adding).
             // NOTE: To properly replace, we'd fetch IDs first then delete. 
             // Here we simply POST new records.
+            $errCount = 0;
+            $lastErr = '';
             foreach ($tempData as $record) {
-                pb_request('POST', "/api/collections/$collectionName/records", $record);
+                $res = pb_request('POST', "/api/collections/$collectionName/records", $record);
+                if (isset($res['error'])) {
+                    $errCount++;
+                    $lastErr = is_string($res['message']) ? $res['message'] : json_encode($res['message']);
+                }
             }
-            $_SESSION['selected_user'] = array_key_first($usersToClean);
-            header("Location: " . $_SERVER['PHP_SELF'] . "?success=1");
-            exit;
+            if ($errCount > 0) {
+                $uploadError = "Failed to upload $errCount records. Last error: $lastErr";
+            } else {
+                $_SESSION['selected_user'] = array_key_first($usersToClean);
+                header("Location: " . $_SERVER['PHP_SELF'] . "?success=1");
+                exit;
+            }
+        } else {
+            $uploadError = "No valid rows found in CSV (checked 6 columns).";
         }
     }
 }
@@ -254,7 +278,7 @@ ksort($summaryData);
 
 <nav class="navbar navbar-dark navbar-custom">
     <div class="container d-flex justify-content-between align-items-center">
-        <a class="navbar-brand fw-bold" href="https://atreusproject.com/public/bas_hour_tracking.php">BAS Hours Tracking (PocketBase)</a>
+        <a class="navbar-brand fw-bold" href="https://wchrestay-ubuntu.lan.local.cmu.edu/public/misc/bas_hour_tracking.php">BAS Hours Tracking (PocketBase)</a>
         <div class="d-flex align-items-center">
             <?php if (!empty($availableUsers)): ?>
                 <form action="" method="post" class="d-flex align-items-center gap-2">
@@ -301,6 +325,7 @@ ksort($summaryData);
 
 <div class="container">
     <?php if (isset($_GET['success'])): ?><div class="alert alert-success alert-dismissible fade show shadow-sm">Data synced successfully.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
+    <?php if ($uploadError): ?><div class="alert alert-danger alert-dismissible fade show shadow-sm"><?= htmlspecialchars($uploadError) ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
