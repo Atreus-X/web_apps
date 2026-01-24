@@ -9,8 +9,6 @@
     AlertTriangle,
     Wifi,
     RotateCcw,
-    FolderOpen, // For public files
-    FileText, // For public files
     Cpu, // Icon for the portal itself (Microchip replacement)
     Lock, // For login screen
     KeyRound, // For reset password
@@ -37,11 +35,6 @@
     icon: React.ComponentType<any>;
     color: string;
     desc: string;
-  }
-
-  interface FileItem {
-    name: string;
-    type: 'file' | 'directory';
   }
 
   // --- Error Boundary Component ---
@@ -107,9 +100,9 @@
 
     // --- Portal Specific State ---
     const [apps, setApps] = useState<AppItem[]>([]);
-    const [publicFiles, setPublicFiles] = useState<FileItem[]>([]);
-    const [isFetchingFiles, setIsFetchingFiles] = useState(false);
-    const [fileFetchError, setFileFetchError] = useState<string | null>(null);
+    const [updates, setUpdates] = useState<any[]>([]);
+    const [newUpdate, setNewUpdate] = useState('');
+    const [isPosting, setIsPosting] = useState(false);
 
     // --- Hardcoded Applications (from original index.php) ---
     useEffect(() => {
@@ -144,31 +137,47 @@
       }
     }, [user, pb]);
 
-    // Fetch public files when user logs in
+    // Fetch updates when user logs in
     useEffect(() => {
       if (user && user.approved !== false) {
-        fetchPublicFiles();
+        loadUpdates();
+        pb.collection('updates').subscribe('*', function (e: any) {
+            if (e.action === 'create') {
+                setUpdates((prev) => [e.record, ...prev]);
+            }
+        }).catch((err: any) => console.error("Subscribe error:", err));
+
+        return () => { pb.collection('updates').unsubscribe('*'); };
       } else {
-        setPublicFiles([]); // Clear files if logged out
+        setUpdates([]); // Clear updates if logged out
       }
     }, [user]);
 
-    const fetchPublicFiles = async () => {
-      setIsFetchingFiles(true);
-      setFileFetchError(null);
+    const loadUpdates = async () => {
       try {
-        // This assumes you'll create a PHP endpoint at /api/files.php
-        const response = await fetch('/public/api/files.php');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data: FileItem[] = await response.json();
-        setPublicFiles(data);
-      } catch (error: any) {
-        console.error("Failed to fetch public files:", error);
-        setFileFetchError(error.message || "Could not load public files.");
+          const res = await pb.collection('updates').getList(1, 50, { sort: '-created', expand: 'user' });
+          setUpdates(res.items);
+      } catch (e) {
+          console.error("Error loading updates", e);
+      }
+    };
+
+    const handlePostUpdate = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newUpdate.trim() || !user) return;
+      setIsPosting(true);
+      try {
+          await pb.collection('updates').create({
+              content: newUpdate,
+              user: user.id,
+              author_name: user.name || user.email
+          });
+          setNewUpdate('');
+      } catch (e) {
+          console.error("Post failed", e);
+          alert("Failed to post update.");
       } finally {
-        setIsFetchingFiles(false);
+          setIsPosting(false);
       }
     };
 
@@ -300,49 +309,44 @@
             ))}
           </div>
 
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 font-mono">Public Files</h2>
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {isFetchingFiles ? (
-              <div className="p-8 text-center text-slate-400">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3" />
-                Loading files...
-              </div>
-            ) : fileFetchError ? (
-              <div className="p-8 text-center text-red-500">
-                <AlertTriangle className="w-6 h-6 mx-auto mb-3" />
-                Error loading files: {fileFetchError}
-              </div>
-            ) : (
-              <table className="w-full text-left">
-                <tbody className="divide-y divide-slate-100">
-                  {publicFiles.length === 0 ? (
-                    <tr>
-                      <td className="px-6 py-4 text-center text-slate-400 italic">No public files found.</td>
-                    </tr>
-                  ) : (
-                    publicFiles.map((item) => (
-                      <tr key={item.name} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            {item.type === 'directory' ? <FolderOpen className="w-5 h-5 text-amber-400" /> : <FileText className="w-5 h-5 text-slate-400" />}
-                            <a href={`/public/${item.name}${item.type === 'directory' ? '/' : ''}`} className="text-slate-700 hover:text-blue-600 font-medium">
-                              {item.name}{item.type === 'directory' ? '/' : ''}
-                            </a>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 font-mono">Updates</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <form onSubmit={handlePostUpdate} className="flex gap-3 mb-6">
+                <input 
+                    type="text" 
+                    value={newUpdate} 
+                    onChange={e => setNewUpdate(e.target.value)} 
+                    placeholder="Write an update..." 
+                    className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <button 
+                    type="submit" 
+                    disabled={isPosting || !newUpdate.trim()} 
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                    {isPosting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Post
+                </button>
+            </form>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {updates.map((update) => (
+                    <div key={update.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="font-bold text-slate-700 text-sm">{update.expand?.user?.name || update.author_name || 'User'}</span>
+                            <span className="text-xs text-slate-400">{new Date(update.created).toLocaleString()}</span>
+                        </div>
+                        <p className="text-slate-600 text-sm whitespace-pre-wrap">{update.content}</p>
+                    </div>
+                ))}
+                {updates.length === 0 && <div className="text-center text-slate-400 text-sm italic">No updates found.</div>}
+            </div>
           </div>
         </main>
 
         {/* Footer (SDK Loader) */}
         <footer className="fixed bottom-0 w-full bg-white border-t py-2 px-4 text-xs text-gray-500 flex justify-between z-10">
           <div>
-            {publicFiles.length} Public Files
+            {updates.length} Updates
           </div>
           <div className="flex items-center gap-2">
             <button
