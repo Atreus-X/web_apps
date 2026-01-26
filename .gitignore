@@ -17,4 +17,3 @@ npm-debug.log*
 # OS Files
 .DS_Store
 Thumbs.db
-work_orders/src/oracle_credentials.php

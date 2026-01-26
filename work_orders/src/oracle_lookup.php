@@ -2,9 +2,33 @@
 header('Content-Type: application/json');
 
 // --- Configuration ---
-// Load credentials from external config file
-// Adjust the path as needed based on your directory structure
-require_once __DIR__ . '/../../config/oracle_credentials.php';
+// Load credentials from .env file
+$envFile = __DIR__ . '/../.env';
+if (!file_exists($envFile)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Configuration file not found']);
+    exit;
+}
+
+$lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+foreach ($lines as $line) {
+    if (strpos(trim($line), '#') === 0) continue;
+    if (strpos($line, '=') !== false) {
+        list($name, $value) = explode('=', $line, 2);
+        $value = trim(trim($value), "\"'"); // Remove quotes and whitespace
+        putenv(trim($name) . "=$value");
+    }
+}
+
+$db_username = getenv('ORACLE_USER');
+$db_password = getenv('ORACLE_PASSWORD');
+$db_connection_string = getenv('ORACLE_CONNECTION');
+
+if (!$db_username || !$db_password || !$db_connection_string) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database credentials missing in configuration']);
+    exit;
+}
 
 $wo_num = $_GET['wo'] ?? '';
 
