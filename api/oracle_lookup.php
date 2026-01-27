@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 
 // --- Configuration ---
 // Load credentials from .env file
-$envFile = __DIR__ . '/../.env';
+$envFile = __DIR__ . '.env';
 if (!file_exists($envFile)) {
     http_response_code(500);
     echo json_encode(['error' => 'Configuration file not found']);
