@@ -1543,6 +1543,7 @@ export default function PartsInventoryTracker() {
   useEffect(() => {
     const pbInstance = new PocketBase(PB_URL);
     setPb(pbInstance);
+    window.pb = pbInstance;
   }, []);
 
   return (
