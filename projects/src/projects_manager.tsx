@@ -337,7 +337,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   const [sortField, setSortField] = useState<keyof Project>('state');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showCompleted, setShowCompleted] = useState(false);
-  const [appSettings, setAppSettings] = useState<any>(null); // New state for app settings
   const [isLoading, setIsLoading] = useState(false);
   
   // Selection & Bulk Edit
@@ -408,47 +407,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
       }
   }, [user, pb]);
 
-  // Fetch App Settings from PocketBase
-  useEffect(() => {
-    let isMounted = true;
-    const fetchSettings = async () => {
-      try {
-        // Assuming there's a single app_settings record, fetch the first one
-        const records = await pb.collection('app_settings').getFullList({ limit: 1 });
-        if (isMounted) {
-          if (records.length > 0) {
-            setAppSettings(records[0]);
-          } else {
-            console.warn("No 'app_settings' record found. Please create one in PocketBase Admin.");
-            // Fallback to a default if no settings record exists
-            setAppSettings({ allowed_roles_projects_manager: ['admin', 'project_manager', 'viewer'] });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch app settings:", err);
-        if (isMounted) {
-          // Fallback on error
-          setAppSettings({ allowed_roles_projects_manager: ['admin', 'project_manager', 'viewer'] });
-        }
-      }
-    };
-
-    fetchSettings();
-
-    // Optional: Subscribe to app_settings changes if you want real-time updates
-    // pb.collection('app_settings').subscribe('*', (e: any) => {
-    //     if (isMounted && e.action === 'update' && e.record.id === appSettings?.id) {
-    //         setAppSettings(e.record);
-    //     }
-    // });
-    // return () => {
-    //     isMounted = false;
-    //     pb.collection('app_settings').unsubscribe('*');
-    // };
-
-    return () => { isMounted = false; };
-  }, [pb]); // Dependency on pb instance
-
   useEffect(() => {
     if (user && user.approved !== false && pb) { // Ensure pb is initialized
         loadData();
@@ -489,18 +447,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
     } finally {
       setIsLoading(false);
     }
-  }, [pb]); // Added pb to dependency array
-
-  // Calculate hasRequiredRole based on user and fetched appSettings
-  const hasRequiredRole = useMemo(() => {
-    // If appSettings haven't loaded yet, or user/user.role is missing, deny access
-    if (!user || !user.role || !appSettings) {
-      return false;
-    }
-    const rolesFromSettings = appSettings.allowed_roles_projects_manager || [];
-    return rolesFromSettings.includes(user.role);
-  }, [user, user?.role, appSettings]); // Depend on user and appSettings
-
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); 
@@ -792,16 +739,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
     setShowModal(true);
   };
 
-  // Loading state for appSettings
-  if (!appSettings) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-        <p className="ml-3 text-gray-700">Loading settings...</p>
-      </div>
-    );
-  }
-
   // --- Auth Screen ---
   if (!user || user.approved === false) {
      return (
@@ -927,11 +864,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-10">
       
-      {!hasRequiredRole ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative w-full" role="alert">
-          <strong className="font-bold">Restricted Access:</strong> You do not have permission to view this content.
-        </div>
-      ) : (
       {/* Top Navigation Bar */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="w-full px-6 h-16 flex items-center justify-between">
@@ -1043,7 +975,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
           </div>
         </div>
       </div>
-      )}
 
       {/* Main Content Area */}
       <div className="w-full px-6 py-6">
@@ -1569,15 +1500,105 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
           </div>
         </div>
       )}
-      </main>
-      ) : (
-        <div className="flex justify-center p-12">
-          <div className="text-center text-gray-500">Access Denied. Insufficient Permissions.</div>
-        </div>
-      )}
 
       {/* Footer (SDK Loader) */}
       <footer className="fixed bottom-0 w-full bg-white border-t py-2 px-4 text-xs text-gray-500 flex justify-between z-10">
         <div>
           Total: {projects.length} | Visible: {filteredData.length}
-          {projects.length > filt
+          {projects.length > filteredData.length && <span className="ml-1 text-indigo-600">(Filters active)</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => { localStorage.clear(); window.location.reload(); }} 
+            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+            title="Hard Reset App (Clear Session)"
+          >
+            <RotateCcw className="w-3 h-3" />
+          </button>
+          <div className="group relative">
+            <Wifi className="w-4 h-4 text-green-500 cursor-help" />
+            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded whitespace-nowrap">
+              Connected to {PB_URL}
+            </div>
+          </div>
+          {currentUser}
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+
+// Subcomponent for Bulk Edit Fields
+const BulkEditField = ({ label, onUpdate, options, isInput, list, type = "text" }: any) => {
+  const [enabled, setEnabled] = useState(false);
+  const [val, setVal] = useState('');
+
+  const handleApply = () => {
+    if (enabled && val) {
+      if (confirm(`Are you sure you want to update ${label} for all selected items?`)) {
+        onUpdate(val);
+        setEnabled(false);
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="w-4 h-4" />
+      <div className="flex-1">
+        <label className={`text-sm font-medium block mb-1 ${enabled ? 'text-slate-700' : 'text-slate-400'}`}>{label}</label>
+        {isInput ? (
+          <React.Fragment>
+            <input 
+              type={type}
+              disabled={!enabled}
+              value={val}
+              onChange={(e) => setVal(e.target.value)}
+              list={list ? "bulk-list-" + label : undefined}
+              className="w-full p-2 border rounded-md disabled:bg-slate-100 disabled:text-slate-400 text-sm"
+            />
+            {list && (
+              <datalist id={"bulk-list-" + label}>
+                {list.map((l: string) => <option key={l} value={l} />)}
+              </datalist>
+            )}
+          </React.Fragment>
+        ) : (
+          <select 
+            disabled={!enabled}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="w-full p-2 border rounded-md disabled:bg-slate-100 disabled:text-slate-400 text-sm"
+          >
+            <option value="">Select...</option>
+            {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        )}
+      </div>
+      <button 
+        disabled={!enabled}
+        onClick={handleApply}
+        className="mt-6 px-3 py-2 bg-indigo-600 text-white rounded text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Apply
+      </button>
+    </div>
+  );
+};
+
+// --- Main App Component ---
+export default function App() {
+  const [pb, setPb] = useState<any>(null);
+
+  useEffect(() => {
+    const pbInstance = new PocketBase(PB_URL);
+    setPb(pbInstance);
+  }, []);
+
+  return (
+    <ErrorBoundary>
+      {pb ? <ProjectsManagerInner pb={pb} /> : <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>}
+    </ErrorBoundary>
+  );
+}

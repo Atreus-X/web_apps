@@ -464,7 +464,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   const [sortField, setSortField] = useState<keyof WorkOrder>('status');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showCompleted, setShowCompleted] = useState(false);
-  const [appSettings, setAppSettings] = useState<any>(null); // New state for app settings
   const [isLoading, setIsLoading] = useState(false);
   
   // Selection & Bulk Edit
@@ -501,47 +500,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
       }
   }, [user, pb]);
 
-  // Fetch App Settings from PocketBase
-  useEffect(() => {
-    let isMounted = true;
-    const fetchSettings = async () => {
-      try {
-        // Assuming there's a single app_settings record, fetch the first one
-        const records = await pb.collection('app_settings').getFullList({ limit: 1 });
-        if (isMounted) {
-          if (records.length > 0) {
-            setAppSettings(records[0]);
-          } else {
-            console.warn("No 'app_settings' record found. Please create one in PocketBase Admin.");
-            // Fallback to a default if no settings record exists
-            setAppSettings({ allowed_roles_work_orders_tracker: ['admin', 'work_order_dispatcher', 'viewer'] });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch app settings:", err);
-        if (isMounted) {
-          // Fallback on error
-          setAppSettings({ allowed_roles_work_orders_tracker: ['admin', 'work_order_dispatcher', 'viewer'] });
-        }
-      }
-    };
-
-    fetchSettings();
-
-    // Optional: Subscribe to app_settings changes if you want real-time updates
-    // pb.collection('app_settings').subscribe('*', (e: any) => {
-    //     if (isMounted && e.action === 'update' && e.record.id === appSettings?.id) {
-    //         setAppSettings(e.record);
-    //     }
-    // });
-    // return () => {
-    //     isMounted = false;
-    //     pb.collection('app_settings').unsubscribe('*');
-    // };
-
-    return () => { isMounted = false; };
-  }, [pb]); // Dependency on pb instance
-
   useEffect(() => {
     if (user && user.approved !== false) {
         loadData();
@@ -567,18 +525,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
     } finally {
       setIsLoading(false);
     }
-  }, [pb]); // Added pb to dependency array
-
-  // Calculate hasRequiredRole based on user and fetched appSettings
-  const hasRequiredRole = useMemo(() => {
-    // If appSettings haven't loaded yet, or user/user.role is missing, deny access
-    if (!user || !user.role || !appSettings) {
-      return false;
-    }
-    const rolesFromSettings = appSettings.allowed_roles_work_orders_tracker || [];
-    return rolesFromSettings.includes(user.role);
-  }, [user, user?.role, appSettings]); // Depend on user and appSettings
-
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); 
@@ -1041,16 +988,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
 
   // --- Render ---
 
-  // Loading state for appSettings
-  if (!appSettings) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-        <p className="ml-3 text-gray-700">Loading settings...</p>
-      </div>
-    );
-  }
-
   // --- Auth Screen ---
   if (!user || user.approved === false) {
      return (
@@ -1109,11 +1046,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-10">
       
-      {!hasRequiredRole ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative w-full" role="alert">
-          <strong className="font-bold">Restricted Access:</strong> You do not have permission to view this content.
-        </div>
-      ) : (
       {/* Top Navigation Bar */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="w-full px-6 h-16 flex items-center justify-between gap-4">
@@ -1242,7 +1174,6 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
           </div>
         </div>
       </div>
-      )}
 
       {/* Main Content Area */}
       <div className="w-full px-6 py-6">
@@ -1514,4 +1445,392 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                           <User className="w-4 h-4 text-slate-400" />
                           {selectedWO.assignee || 'Unassigned'}
                         </div>
+                      </AssigneeTooltip>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Date Reported</label>
+                    {isEditing ? (
+                      <input 
+                        type="date" 
+                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selectedWO.date_reported}
+                        onChange={e => setSelectedWO({...selectedWO, date_reported: e.target.value})}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 text-slate-800">
+                        <Calendar className="w-4 h-4 text-slate-400" />
+                        {selectedWO.date_reported ? new Date(selectedWO.date_reported).toLocaleDateString() : '-'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">WO Type</label>
+                    {isEditing ? (
+                       <select 
+                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selectedWO.wo_type}
+                        onChange={e => setSelectedWO({...selectedWO, wo_type: e.target.value})}
+                      >
+                        {WO_TYPE_OPTIONS.map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    ) : (
+                      <div className="text-slate-800 font-medium bg-slate-100 px-2 py-1 rounded inline-block">{selectedWO.wo_type || '-'}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* --- Column 2: Location & Contact --- */}
+                <div className="space-y-6">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Location & Contact</h3>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Building Name</label>
+                    {isEditing ? (
+                      <>
+                        <input 
+                          type="text" 
+                          list="bldg-names-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.bldg_name}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = buildings.find(b => b.bldg_name === val);
+                              setSelectedWO(prev => ({...prev!, bldg_name: val, bldg_abbr: match ? (match.bldg_max_abbr || match.bldg_cmu_abbr) : prev!.bldg_abbr}));
+                          }}
+                          placeholder="Select or type building..."
+                        />
+                        <datalist id="bldg-names-list">
+                            {buildings.map(b => <option key={b.id} value={b.bldg_name} />)}
+                        </datalist>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2 text-slate-800">
+                        <Building className="w-4 h-4 text-slate-400" />
+                        {selectedWO.bldg_name || '-'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Building Abbr</label>
+                    {isEditing ? (
+                      <>
+                        <input 
+                          type="text" 
+                          list="bldg-abbrs-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.bldg_abbr}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = buildings.find(b => (b.bldg_max_abbr === val || b.bldg_cmu_abbr === val));
+                              setSelectedWO(prev => ({...prev!, bldg_abbr: val, bldg_name: match ? match.bldg_name : prev!.bldg_name}));
+                          }}
+                          placeholder="Abbreviation..."
+                        />
+                        <datalist id="bldg-abbrs-list">
+                            {buildings.map(b => <option key={b.id} value={b.bldg_max_abbr || b.bldg_cmu_abbr} />)}
+                        </datalist>
+                      </>
+                    ) : (
+                      <div className="text-slate-800 font-mono text-sm bg-slate-100 px-2 py-1 inline-block rounded">{selectedWO.bldg_abbr || '-'}</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Contact Name</label>
+                    {isEditing ? (
+                      <>
+                        <input 
+                          type="text" 
+                          list="contact-names-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.contact_name}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = contacts.find(c => c.name === val);
+                              setSelectedWO(prev => ({...prev!, contact_name: val, contact_abbr: match ? match.abbr : prev!.contact_abbr}));
+                          }}
+                        />
+                        <datalist id="contact-names-list">
+                            {contacts.map(c => <option key={c.id} value={c.name} />)}
+                        </datalist>
+                      </>
+                    ) : (
+                      <ContactTooltip abbr={selectedWO.contact_abbr} name={selectedWO.contact_name} contacts={contacts}>
+                        <div className="flex items-center gap-2 text-slate-800">
+                           <User className="w-4 h-4 text-slate-400" />
+                           {selectedWO.contact_name || '-'}
+                        </div>
+                      </ContactTooltip>
+                    )}
+                  </div>
+
+                   <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Contact Abbr</label>
+                    {isEditing ? (
+                      <>
+                        <input 
+                          type="text" 
+                          list="contact-abbrs-list"
+                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selectedWO.contact_abbr}
+                          onChange={e => {
+                              const val = e.target.value;
+                              const match = contacts.find(c => c.abbr === val);
+                              setSelectedWO(prev => ({...prev!, contact_abbr: val, contact_name: match ? match.name : prev!.contact_name}));
+                          }}
+                        />
+                        <datalist id="contact-abbrs-list">
+                            {contacts.map(c => <option key={c.id} value={c.abbr} />)}
+                        </datalist>
+                      </>
+                    ) : (
+                      <div className="text-slate-800 text-sm">{selectedWO.contact_abbr || '-'}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* --- Column 3: Description --- */}
+                <div className="space-y-6">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Description & Notes</h3>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Description</label>
+                    {isEditing ? (
+                      <textarea 
+                        className="w-full text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none min-h-[120px]"
+                        value={selectedWO.description}
+                        onChange={e => setSelectedWO({...selectedWO, description: e.target.value})}
+                      />
+                    ) : (
+                      <p className="text-slate-700 bg-slate-50 p-4 rounded-lg border border-slate-100 leading-relaxed text-sm">
+                        {selectedWO.description || "No description provided."}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Comments</label>
+                    {isEditing ? (
+                      <textarea 
+                        className="w-full text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none min-h-[80px]"
+                        value={selectedWO.comments}
+                        onChange={e => setSelectedWO({...selectedWO, comments: e.target.value})}
+                        placeholder="Internal notes..."
+                      />
+                    ) : (
+                      <div className="text-slate-700 bg-yellow-50/50 p-4 rounded-lg border border-yellow-100/50 leading-relaxed text-sm flex items-start gap-2">
+                        <MessageSquare className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <p>{selectedWO.comments || "No comments."}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center flex-shrink-0">
+              {!isEditing ? (
+                <button 
+                  className="text-red-500 text-sm hover:underline"
+                  onClick={handleDelete}
+                >
+                  Delete Record
+                </button>
+              ) : (
+                 <div /> 
+              )}
+              
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-slate-600 font-medium hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 rounded-lg transition-all"
+                >
+                  {isEditing ? 'Cancel' : 'Close'}
+                </button>
+                <button 
+                  onClick={() => {
+                    if (isEditing) {
+                      handleSave();
+                    } else {
+                      setIsEditing(true);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-sm transition-colors flex items-center gap-2"
+                >
+                  {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isEditing ? 'Save Changes' : 'Edit WO'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Stats Footer */}
+      <footer className="fixed bottom-0 w-full bg-white border-t py-2 px-4 text-xs text-gray-500 flex justify-between z-10">
+          <div>
+              Total: {stats.total} | Visible: {filteredData.length}
+              {workOrders.length > filteredData.length && <span className="ml-1 text-indigo-600">(Filters active)</span>}
+          </div>
+          <div className="flex items-center gap-2">
+              <button 
+                  onClick={() => { localStorage.clear(); window.location.reload(); }} 
+                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                  title="Hard Reset App (Clear Session)"
+              >
+                  <RotateCcw className="w-3 h-3" />
+              </button>
+              <div className="group relative">
+                  <Wifi className="w-4 h-4 text-green-500 cursor-help" />
+                  <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded whitespace-nowrap">
+                      Connected to {PB_URL}
+                  </div>
+              </div>
+              {currentUser}
+          </div>
+      </footer>
+    </div>
+  );
+}
+
+// --- SDK Loader ---
+function PocketBaseLoader() {
+  const [pb, setPb] = useState<any>(null);
+  const [healthStatus, setHealthStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [healthError, setHealthError] = useState('');
+
+  useEffect(() => {
+    // Since we import the class directly, we instantiate it
+    try {
+        const pbInstance = new PocketBase(PB_URL);
+        setPb(pbInstance);
         
+        // Health check
+        pbInstance.health.check()
+            .then(() => setHealthStatus('ok'))
+            .catch((err: any) => {
+                console.error("Health check failed:", err);
+                setHealthStatus('error');
+                setHealthError(err.message);
+            });
+    } catch (e: any) {
+        console.error("Init Error", e);
+        setHealthStatus('error');
+        setHealthError(e.message);
+    }
+  }, []);
+
+  if (healthStatus === 'error') {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-700 p-4 text-center">
+            <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+                <div className="flex justify-center mb-4 text-red-500"><ServerCrash className="w-16 h-16" /></div>
+                <h2 className="text-xl font-bold mb-2">Connection Failed</h2>
+                <p className="mb-4 text-sm text-gray-600">
+                    Unable to connect to the inventory server at <strong>{PB_URL}</strong>.
+                </p>
+                <div className="bg-red-50 p-3 rounded text-left text-xs text-red-800 mb-6 font-mono overflow-auto max-h-32">
+                    Error: {healthError || "Network Error (Status 0)"}
+                </div>
+                <div className="text-left text-sm text-gray-600 space-y-2">
+                    <p className="font-semibold">Troubleshooting:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                        <li>Check if your device has internet access.</li>
+                        <li><strong>Cloudflare Users:</strong> Ensure SSL/TLS mode is set to <strong>Full (Strict)</strong>.</li>
+                        <li>Check if the PocketBase server is running.</li>
+                    </ul>
+                </div>
+                <button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-6 w-full py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                >
+                    Retry Connection
+                </button>
+            </div>
+        </div>
+      );
+  }
+
+  if (!pb || healthStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-500">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+        <p>Connecting to Database...</p>
+      </div>
+    );
+  }
+
+  return <WorkOrderManagerInner pb={pb} />;
+}
+
+export default function WorkOrderApp() {
+  return (
+    <ErrorBoundary>
+      <PocketBaseLoader />
+    </ErrorBoundary>
+  );
+}
+
+// Subcomponent for Bulk Edit Fields
+const BulkEditField = ({ label, onUpdate, options, isInput, type = "text" }: { 
+  label: string; 
+  onUpdate: (val: string) => void; 
+  options?: string[]; 
+  isInput?: boolean; 
+  type?: string 
+}) => {
+  const [enabled, setEnabled] = useState(false);
+  const [val, setVal] = useState('');
+
+  const handleApply = () => {
+    if (enabled && val) {
+      if (confirm(`Are you sure you want to update ${label} for all selected items?`)) {
+        onUpdate(val);
+        setEnabled(false);
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="w-4 h-4" />
+      <div className="flex-1">
+        <label className={`text-sm font-medium block mb-1 ${enabled ? 'text-slate-700' : 'text-slate-400'}`}>{label}</label>
+        {isInput ? (
+          <input 
+            type={type}
+            disabled={!enabled}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="w-full p-2 border rounded-md disabled:bg-slate-100 disabled:text-slate-400 text-sm"
+          />
+        ) : (
+          <select 
+            disabled={!enabled}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="w-full p-2 border rounded-md disabled:bg-slate-100 disabled:text-slate-400 text-sm"
+          >
+            <option value="">Select...</option>
+            {options?.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        )}
+      </div>
+      <button 
+        disabled={!enabled}
+        onClick={handleApply}
+        className="mt-6 px-3 py-2 bg-indigo-600 text-white rounded text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Apply
+      </button>
+    </div>
+  );
+};

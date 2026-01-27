@@ -382,48 +382,6 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
       return [...new Set(mfrs)].sort();
   }, [parts]);
 
-  // Fetch App Settings from PocketBase
-  useEffect(() => {
-    let isMounted = true;
-    const fetchSettings = async () => {
-      try {
-        // Assuming there's a single app_settings record, fetch the first one
-        const records = await pb.collection('app_settings').getFullList({ limit: 1 });
-        if (isMounted) {
-          if (records.length > 0) {
-            setAppSettings(records[0]);
-          } else {
-            console.warn("No 'app_settings' record found. Please create one in PocketBase Admin.");
-            // Fallback to a default if no settings record exists
-            setAppSettings({ allowed_roles_parts_tracker: ['admin', 'parts_manager', 'viewer'] });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch app settings:", err);
-        if (isMounted) {
-          // Fallback on error
-          setAppSettings({ allowed_roles_parts_tracker: ['admin', 'parts_manager', 'viewer'] });
-        }
-      }
-    };
-
-    fetchSettings();
-
-    // Optional: Subscribe to app_settings changes if you want real-time updates
-    // pb.collection('app_settings').subscribe('*', (e: any) => {
-    //     if (isMounted && e.action === 'update' && e.record.id === appSettings?.id) {
-    //         setAppSettings(e.record);
-    //     }
-    // });
-    // return () => {
-    //     isMounted = false;
-    //     pb.collection('app_settings').unsubscribe('*');
-    // };
-
-    return () => { isMounted = false; };
-  }, [pb]); // Dependency on pb instance
-
-
   useEffect(() => {
     if (resizingCol) {
       const onMove = (e: MouseEvent) => {
@@ -552,7 +510,7 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
         isMounted = false; 
         if (unsubFunc) { unsubFunc(); }
     };
-  }, [user, isImporting, pb, appSettings, hasRequiredRole]); // Add appSettings and hasRequiredRole to dependencies
+  }, [user, isImporting, pb]);
 
   // --- Handlers ---
   const handleLogin = async (e: React.FormEvent) => {
@@ -1045,28 +1003,12 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
     );
   }
 
-  // Loading state for appSettings
-  if (!appSettings) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-        <p className="ml-3 text-gray-700">Loading settings...</p>
-      </div>
-    );
-  }
-
-
   // --- Main App ---
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans pb-10">
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
         <div className="w-full px-4 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {!hasRequiredRole ? (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative w-full" role="alert">
-              <strong className="font-bold">Restricted Access:</strong> You do not have permission to view this content.
-            </div>
-          ) : (
             <div className="flex items-center gap-2"><ClipboardList className="w-6 h-6 text-indigo-600" /><h1 className="text-xl font-bold text-gray-900">Inventory</h1></div>
             <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
                <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" /><input type="text" placeholder="Search..." className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 focus:ring-2 focus:ring-indigo-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
@@ -1117,11 +1059,9 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
               </div>
             </div>
           </div>
-          )}
         </div>
       </header>
 
-      {hasRequiredRole ? (
       {/* Datalists for Autocomplete */}
       <datalist id="part-names-list">
           {uniquePartNames.map((name: string) => <option key={name} value={name} />)}
@@ -1131,7 +1071,7 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
       </datalist>
 
       <main className="w-full px-4 py-8">
-        {/* Fetch Error Banner (only if hasRequiredRole) */}
+        {/* Fetch Error Banner */}
         {fetchError && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 flex items-center justify-between">
                 <div className="flex items-start">
