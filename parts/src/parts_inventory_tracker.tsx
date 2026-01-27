@@ -701,9 +701,27 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
     if (groupBy === 'none') return null;
     
     const groups: Record<string, any> = {};
+
+    const getLocationWoKey = (part: any) => {
+        const area = String(part.area || '').trim();
+        const wo = String(part.work_order || '').trim();
+        if (area && wo) {
+            return `${area} / ${wo}`;
+        } else if (area) {
+            return area;
+        } else if (wo) {
+            return wo;
+        }
+        return 'Unassigned Location/WO';
+    };
     
     filteredAndSortedParts.forEach((part: any) => {
-        let key = part[groupBy] || 'Unassigned';
+        let key = '';
+        if (groupBy === 'location_wo') {
+            key = getLocationWoKey(part);
+        } else {
+            key = part[groupBy] || 'Unassigned';
+        }
         key = String(key).trim();
         if (!key) key = 'Unassigned';
         
@@ -1009,6 +1027,7 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
                           <option value="manufacturer">Group by Manufacturer</option>
                           <option value="area">Group by Location</option>
                           <option value="vendor">Group by Vendor</option>
+                          <option value="location_wo">Group by Location / Work Order</option>
                        </select>
                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                           <ChevronDown className="w-3 h-3" />
@@ -1252,6 +1271,7 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
                                         {groupBy === 'manufacturer' && <span className="text-xs font-normal text-indigo-500 mr-2 uppercase">Manufacturer:</span>}
                                         {groupBy === 'area' && <span className="text-xs font-normal text-indigo-500 mr-2 uppercase">Location:</span>}
                                         {group.title} <span className="text-xs font-normal text-gray-500 ml-2">({group.items.length} records)</span>
+                                        {groupBy === 'location_wo' && <span className="text-xs font-normal text-indigo-500 mr-2 uppercase">Location / Work Order:</span>}
                                     </div>
                                 </td>
                                 <td className="px-6 py-2 text-sm font-mono font-bold text-indigo-900 border-l border-indigo-100">
@@ -1501,88 +1521,7 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
                   title="Hard Reset App (Clear Session)"
               >
 
-type BulkEditFieldProps = {
-  label: string;
-  onUpdate: (val: string) => void;
-  options?: string[];
-  isInput?: boolean;
-  type?: string;
-  list?: string[];
-  onSelectFromList?: (val: string) => void;
-};
-
-const BulkEditField = ({
-  label,
-  onUpdate,
-  options,
-  isInput,
-  type = "text",
-  list,
-  onSelectFromList,
-}: BulkEditFieldProps) => {
-
-
-  const [enabled, setEnabled] = useState(false);
-  const [val, setVal] = useState('');
-
-  const handleApply = () => {
-    if (enabled && val) {
-      if (confirm(`Are you sure you want to update "${label}" to "${val}" for all selected items?`)) {
-        onUpdate(val);
-        setEnabled(false);
-      }
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-3">
-      <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="w-4 h-4" />
-      <div className="flex-1">
-        <label className={`text-sm font-medium block mb-1 ${enabled ? 'text-slate-700' : 'text-slate-400'}`}>{label}</label>
-        {isInput ? (
-          <React.Fragment>
-            <input 
-              type={type}
-              disabled={!enabled}
-              value={val}
-              onChange={(e) => setVal(e.target.value)}
-              onBlur={(e) => { // Auto-fill logic for inputs with datalist
-                if (list && onSelectFromList) {
-                  const selectedValue = onSelectFromList(e.target.value);
-                  if (selectedValue) setVal(selectedValue);
-                }
-              }}
-              list={list ? `bulk-list-${label.replace(/\s+/g, '-')}` : undefined}
-              className="w-full p-2 border rounded-md disabled:bg-slate-100 disabled:text-slate-400 text-sm"
-            />
-            {list && (
-              <datalist id={`bulk-list-${label.replace(/\s+/g, '-')}`}>
-                {list.map((o) => <option key={o} value={o} />)}
-              </datalist>
-            )}
-          </React.Fragment>
-        ) : (
-          <select 
-            disabled={!enabled}
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-            className="w-full p-2 border rounded-md disabled:bg-slate-100 disabled:text-slate-400 text-sm"
-          >
-            <option value="">Select...</option>
-            {options?.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        )}
-      </div>
-      <button 
-        disabled={!enabled}
-        onClick={handleApply}
-        className="mt-6 px-3 py-2 bg-indigo-600 text-white rounded text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Apply
-      </button>
-    </div>
-  );
-};                 <RotateCcw className="w-3 h-3" />
+                 <RotateCcw className="w-3 h-3" /> {/* This was part of the misplaced component definition, moving it back */}
               </button>
               <div className="group relative">
                   <Wifi className="w-4 h-4 text-green-500 cursor-help" />
