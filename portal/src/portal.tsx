@@ -102,6 +102,7 @@
     const [apps, setApps] = useState<AppItem[]>([]);
     const [updates, setUpdates] = useState<any[]>([]);
     const [newUpdate, setNewUpdate] = useState('');
+    const [appSettings, setAppSettings] = useState<any>(null); // New state for app settings
     const [isPosting, setIsPosting] = useState(false);
 
     // --- Hardcoded Applications (from original index.php) ---
@@ -114,7 +115,7 @@
         { name: 'Projects Manager', url: '/public/projects/', icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
         { name: 'Work Orders Tracker', url: '/public/work_orders/', icon: Copy, color: 'bg-red-600', desc: 'Work Orders Tracker' },
       ]);
-    }, []);
+    }, []); // Initial hardcoded apps, will be filtered later
 
     // --- Auth & Data Subscription (Copied from other apps) ---
     useEffect(() => {
@@ -137,6 +138,47 @@
       }
     }, [user, pb]);
 
+    // Fetch App Settings from PocketBase
+    useEffect(() => {
+      let isMounted = true;
+      const fetchSettings = async () => {
+        try {
+          // Assuming there's a single app_settings record, fetch the first one
+          const records = await pb.collection('app_settings').getFullList({ limit: 1 });
+          if (isMounted) {
+            if (records.length > 0) {
+              setAppSettings(records[0]);
+            } else {
+              console.warn("No 'app_settings' record found. Please create one in PocketBase Admin.");
+              // Fallback to a default if no settings record exists
+              setAppSettings({ 
+                allowed_roles_portal: ['admin', 'parts_manager', 'project_manager', 'work_order_dispatcher', 'viewer', 'UE', 'read_only'],
+                allowed_roles_parts_tracker: ['admin', 'parts_manager', 'viewer'],
+                allowed_roles_projects_manager: ['admin', 'project_manager', 'viewer'],
+                allowed_roles_work_orders_tracker: ['admin', 'work_order_dispatcher', 'viewer'],
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch app settings:", err);
+          if (isMounted) {
+            // Fallback on error
+            setAppSettings({ 
+              allowed_roles_portal: ['admin', 'parts_manager', 'project_manager', 'work_order_dispatcher', 'viewer', 'UE', 'read_only'],
+              allowed_roles_parts_tracker: ['admin', 'parts_manager', 'viewer'],
+              allowed_roles_projects_manager: ['admin', 'project_manager', 'viewer'],
+              allowed_roles_work_orders_tracker: ['admin', 'work_order_dispatcher', 'viewer'],
+            });
+          }
+        }
+      };
+
+      fetchSettings();
+      return () => { isMounted = false; };
+    }, [pb]); // Dependency on pb instance
+
+
+
     // Fetch updates when user logs in
     useEffect(() => {
       if (user && user.approved !== false) {
@@ -151,7 +193,7 @@
       } else {
         setUpdates([]); // Clear updates if logged out
       }
-    }, [user]);
+    }, [user, pb]); // Added pb to dependency array
 
     const loadUpdates = async () => {
       try {
@@ -222,6 +264,16 @@
       window.location.reload();
     };
 
+    // Loading state for appSettings
+    if (!appSettings) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+          <p className="ml-3 text-gray-700">Loading settings...</p>
+        </div>
+      );
+    }
+
     // --- Auth Screen (Copied from other apps) ---
     if (!user || user.approved === false) {
       return (
@@ -277,6 +329,38 @@
       );
     }
 
+    // Helper function to check if the user has a specific role
+    const hasRole = (roleName: string) => user?.role && appSettings.allowed_roles_portal.includes(user.role);
+
+    // Filter apps based on fetched settings and user's role
+    const filteredApps = useMemo(() => {
+      if (!user || !user.role || !appSettings) return []; // No user or settings not loaded
+
+      const userRole = user.role;
+
+      return apps.filter(app => {
+        if (app.name === 'Parts Inventory') {
+          const allowed = appSettings.allowed_roles_parts_tracker || [];
+          return allowed.includes(userRole);
+        }
+        if (app.name === 'Projects Manager') {
+          const allowed = appSettings.allowed_roles_projects_manager || [];
+          return allowed.includes(userRole);
+        }
+        if (app.name === 'Work Orders Tracker') {
+          const allowed = appSettings.allowed_roles_work_orders_tracker || [];
+          return allowed.includes(userRole);
+        }
+        // For other apps, you might have a default or specific setting
+        // For example, if you want all authenticated users to see misc apps, or a specific 'viewer' role
+        // For now, let's assume if it's not explicitly listed, it's visible to anyone in allowed_roles_portal
+        const allowedPortalRoles = appSettings.allowed_roles_portal || [];
+        return allowedPortalRoles.includes(userRole);
+      });
+    }, [apps, user, user?.role, appSettings]);
+
+
+
     // --- Main App Content ---
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-10">
@@ -298,7 +382,7 @@
 
         <main className="container mx-auto px-6 py-10">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 font-mono">Pinned Applications</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12"> {/* Use filteredApps here */}
             {apps.map((app) => (
               <a key={app.name} href={app.url} className="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-all">
                 <div className={`${app.color} w-10 h-10 rounded-lg flex items-center justify-center text-white mb-3 group-hover:scale-110 transition-transform`}>
