@@ -318,6 +318,10 @@ const TableHeader = ({ label, sortKey, sortConfig, onSort, width, onResizeStart,
 
 // --- Main Inner Component ---
 function PartsInventoryTrackerInner({ pb }: { pb: any }) {
+
+  // --- App Settings State ---
+  const [appSettings, setAppSettings] = useState<any>(null);
+  const [appSettingsLoading, setAppSettingsLoading] = useState<boolean>(true);
   // STRICT INITIALIZATION
   const [user, setUser] = useState(() => {
       if (pb.authStore.isValid && pb.authStore.model) {
@@ -445,6 +449,48 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
       return () => unsubscribe(); 
   }, [pb]);
 
+  // --- Fetch app_settings from PocketBase ---
+  useEffect(() => {
+    // Only fetch settings once pb is ready
+    const fetchSettings = async () => {
+      setAppSettingsLoading(true);
+      try {
+        const settings = await pb
+          .collection("app_settings")
+          .getList(1, 1); // Assumes only one settings record
+        // If you know the record ID, you may use getOne instead
+        setAppSettings(settings.items[0] || null);
+      } catch (err) {
+        console.error("Error loading app_settings:", err);
+        setAppSettings(null);
+      } finally {
+        setAppSettingsLoading(false);
+      }
+    };
+    fetchSettings();
+  }, [pb]);
+ 
+  // --- Compute if user has required role ---
+  const hasRequiredRole = useMemo(() => {
+    if (appSettingsLoading) return null;
+    if (!user || !appSettings) return false;
+  
+    const allowedRoles = Array.isArray(
+      appSettings.allowed_roles_parts_tracker
+    )
+      ? appSettings.allowed_roles_parts_tracker
+      : [];
+  
+    const userRole = user.role;
+  
+    if (!userRole) {
+      console.warn("User missing role field", user);
+      return false;
+    }
+  
+    return allowedRoles.includes(userRole);
+  }, [user, appSettings, appSettingsLoading]);
+  
   // Sanity Check
   useEffect(() => {
       if (user && (!user.id || !user.email)) {
@@ -999,6 +1045,25 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
             )}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // --- Role-based Access Restriction ---
+  if (appSettingsLoading) {
+    return (
+      <div className="p-8 text-center">
+        Loading permissions…
+      </div>
+    );
+  }
+  
+  // Settings loaded, but user not allowed
+  if (hasRequiredRole === false) {
+    return (
+      <div className="p-8 text-center text-red-600">
+        <h2>Access Denied</h2>
+        <p>Your account does not have permission to view this application.</p>
       </div>
     );
   }
