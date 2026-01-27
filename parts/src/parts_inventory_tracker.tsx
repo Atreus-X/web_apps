@@ -366,6 +366,12 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
+  // Define roles that can access the inventory
+  const allowedRoles = ['admin', 'parts_manager', 'UE', 'read_only'];
+
+  // Check if the user has any of the allowed roles
+  const hasRequiredRole = user && user.role && allowedRoles.includes(user.role);
+
   // Column Resizing
   const [resizingCol, setResizingCol] = useState<string | null>(null);
   const [resizeStartX, setResizeStartX] = useState(0);
@@ -1007,6 +1013,11 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans pb-10">
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+      {!hasRequiredRole ? (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Restricted Access:</strong> You do not have permission to view this content.
+        </div>
+      ) : (
         <div className="w-full px-4 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-2"><ClipboardList className="w-6 h-6 text-indigo-600" /><h1 className="text-xl font-bold text-gray-900">Inventory</h1></div>
@@ -1061,6 +1072,7 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
           </div>
         </div>
       </header>
+      )}
 
       {/* Datalists for Autocomplete */}
       <datalist id="part-names-list">
@@ -1071,6 +1083,7 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
       </datalist>
 
       <main className="w-full px-4 py-8">
+      {hasRequiredRole ? (
         {/* Fetch Error Banner */}
         {fetchError && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 flex items-center justify-between">
@@ -1506,6 +1519,11 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
           </div>
         </div>
         )}
+      ) : (
+        <div className="flex justify-center p-12">
+          <div className="text-center text-gray-500">Access Denied. Insufficient Permissions.</div>
+        </div>
+      )}
       </main>
       
       {/* Stats Footer */}
