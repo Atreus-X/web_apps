@@ -409,6 +409,7 @@
         try {
             pb = new PocketBase(PB_URL);
             pb.autoCancellation(false);
+            pb.authStore.loadFromCookie(); // Attempt to load auth from cookie
             
             elements.serverStatus.innerText = "Client Ready";
             elements.serverStatus.className = "text-xs text-green-600 font-bold font-mono";
@@ -1131,6 +1132,11 @@
         setStatus(true, "Auto-uploading to PocketBase...");
         
         try {
+            if (!pb.authStore.isValid || !pb.authStore.model) {
+                window.showError("Not logged in to PocketBase. Cannot upload file.");
+                setStatus(false);
+                return;
+            }
             const jsonString = JSON.stringify(rawData);
             const blob = new Blob([jsonString], { type: "application/json" });
             
@@ -1147,6 +1153,10 @@
             formData.append('filename', filename);
             formData.append('dataset', blob, filename + '.json');
 
+            formData.append('user', pb.authStore.model.id); // Link to the current user
+            
+            // Add a dummy file to satisfy PocketBase's file upload requirement if 'dataset' is a file field
+            // If 'dataset' is a JSON field, this might not be needed. Assuming it's a file field.
             setStatus(true, `Uploading ${sizeMB} MB to PocketBase...`);
 
             const record = await pb.collection('hvac_files').create(formData);

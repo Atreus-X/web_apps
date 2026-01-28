@@ -59,6 +59,7 @@ interface WorkOrder {
   contact_name: string;
   comments: string;
   last_modified_by: string;
+  user_id: string; // New field to link work orders to users
   updated?: string;
   created?: string;
   [key: string]: any; 
@@ -503,14 +504,14 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   useEffect(() => {
     if (user && user.approved !== false) {
         loadData();
-    }
+    } // Re-run loadData when user changes
   }, [user]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [woRes, contactsRes, buildingsRes, assigneesRes] = await Promise.all([
-        pb.collection(COLLECTION_NAME).getFullList({ sort: '-created' }),
+      const [woRes, contactsRes, buildingsRes, assigneesRes] = await Promise.all([ // Filter by user_id
+        pb.collection(COLLECTION_NAME).getFullList({ sort: '-created', filter: `user_id = "${user.id}"` }),
         pb.collection('contacts').getFullList().catch((e: any) => { console.warn("Contacts load failed", e); return []; }),
         pb.collection('buildings').getFullList().catch((e: any) => { console.warn("Buildings load failed", e); return []; }),
         pb.collection('assignees').getFullList().catch((e: any) => { console.warn("Assignees load failed", e); return []; })
@@ -743,7 +744,8 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
                contact_abbr: cols[9] || '',
                contact_name: cols[10] || '',
                comments: cols[11] || '',
-               last_modified_by: currentUser || 'Importer'
+               last_modified_by: currentUser || 'Importer',
+               user_id: user.id // Associate with current user
              };
              promises.push(pb.collection(COLLECTION_NAME).create(newWO));
           }
@@ -775,6 +777,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
     try {
       const updatedWO = { ...selectedWO };
       updatedWO.last_modified_by = currentUser || 'Unknown';
+      updatedWO.user_id = user.id; // Ensure user_id is set/updated
       
       if (updatedWO.date_reported) {
          const d = new Date(updatedWO.date_reported);
@@ -831,7 +834,8 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
       bldg_name: '',
       contact_abbr: '',
       contact_name: '',
-      comments: '',
+      comments: '', // Default to empty string
+      user_id: user.id, // Associate with current user
       last_modified_by: currentUser || 'Unknown'
     });
     setIsEditing(true);
@@ -860,7 +864,7 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
     setIsSaving(true);
     
     pb.autoCancellation(false);
-    const finalUpdates = { ...updates, last_modified_by: currentUser || 'Bulk Edit' };
+    const finalUpdates = { ...updates, last_modified_by: currentUser || 'Bulk Edit', user_id: user.id }; // Ensure user_id is set/updated
 
     try {
       const promises = Array.from(selectedIds).map(id => 
