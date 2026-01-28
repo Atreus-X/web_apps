@@ -106,10 +106,11 @@
     const [isPosting, setIsPosting] = useState(false);
 
     // --- Determine base path dynamically from build-time environment variable ---
-    // VITE_APP_BASE for the portal is set by the build script (e.g., /public/ or /testing/).
+    // VITE_APP_BASE for the portal is set by the build script (e.g., /public/ or /testing/). This is the WEB_BASE_URL.
     // We ensure dynamicPrefix does NOT have a trailing slash for correct concatenation with targetPath.
     const dynamicPrefix = React.useMemo(() => {
       const base = (import.meta as any).env.VITE_APP_BASE || '';
+      // Remove trailing slash if present, as we add it manually when constructing hrefs
       return base.endsWith('/') ? base.slice(0, -1) : base; // Remove trailing slash
     }, []);
 

@@ -128,9 +128,13 @@ for APP in "${TARGETS[@]}"; do
 
     echo "📦 Building project inside Docker (Node 20)..."
     # Construct the correct VITE_APP_BASE for the sub-application.
-    # For the portal itself (REL_DEST="."), VITE_APP_BASE will be $WEB_BASE_URL (e.g., /public/).
-    # For other apps (e.g., parts, projects), it will be $WEB_BASE_URL/app_name/ (e.g., /public/parts/).
-    APP_SPECIFIC_VITE_APP_BASE="${WEB_BASE_URL}${REL_DEST}/"
+    if [ "$REL_DEST" = "." ]; then
+        # For the portal itself, VITE_APP_BASE is just the WEB_BASE_URL (e.g., /public/)
+        APP_SPECIFIC_VITE_APP_BASE="$WEB_BASE_URL"
+    else
+        # For other apps (e.g., parts, projects), it's WEB_BASE_URL + app_name + / (e.g., /public/parts/)
+        APP_SPECIFIC_VITE_APP_BASE="${WEB_BASE_URL}${REL_DEST}/"
+    fi
     if ! docker run --rm -e VITE_APP_BASE="$APP_SPECIFIC_VITE_APP_BASE" -e VITE_PB_URL="$PB_URL" -v "$PWD":/app -w /app node:20 /bin/sh -c "npm install && npm run build"; then
         echo "❌ BUILD FAILED for $APP"
         if [ "$IS_BATCH_MODE" = false ]; then

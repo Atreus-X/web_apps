@@ -478,8 +478,8 @@ $(document).ready(function() {
     $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) { $($.fn.dataTable.tables(true)).DataTable().columns.adjust(); });
 });
 
-// Debugging PB_URL
-document.body.insertAdjacentHTML('beforeend', '<div style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; border-radius: 3px; font-size: 10px; z-index: 9999;">PB_URL: <?php echo $pbBaseUrl; ?></div>');
+// Debugging PB_URL and Base Path
+document.body.insertAdjacentHTML('beforeend', '<div style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; border-radius: 3px; font-size: 10px; z-index: 9999;">PB_URL: <?php echo $pbBaseUrl; ?><br>Base: <?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?></div>');
 </script>
 </body>
 </html>
