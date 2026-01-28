@@ -4,7 +4,7 @@ session_start();
 /**
  * POCKETBASE CONFIGURATION
  */
-$pbBaseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . "/pocketbase";
+$pbBaseUrl = "https://wchrestay-ubuntu.lan.local.cmu.edu/pocketbase";
 $collectionName = "bas_hours_data";
 
 /**
