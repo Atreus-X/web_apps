@@ -55,7 +55,7 @@ import {
 import PocketBase from 'pocketbase';
 
 // --- Configuration ---
-const PB_URL = (import.meta as any).env.VITE_PB_URL;
+const PB_URL = (import.meta as any).env.VITE_PB_URL; // Ensure this is the only declaration
 
 // --- Constants ---
 const STATUS_OPTIONS = [

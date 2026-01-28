@@ -105,19 +105,10 @@
     const [newUpdate, setNewUpdate] = useState('');
     const [isPosting, setIsPosting] = useState(false);
 
-    // --- Determine base path dynamically ---
-    const dynamicPrefix = React.useMemo(() => { // This prefix is for applications that are deployed relative to the portal's base
-      const pathname = window.location.pathname;
-      // Split by '/' and find 'portal'
-      const pathSegments = pathname.split('/').filter(s => s !== ''); // Remove empty strings from split
-      const portalIndex = pathSegments.indexOf('portal');
-  
-      if (portalIndex > 0) {
-        // The dynamic prefix is the segment before 'portal' (e.g., /public, /testing)
-        return '/' + pathSegments.slice(0, portalIndex).join('/');
-      }
-      // If 'portal' is the first segment or not found, assume no prefix (root)
-      return '';
+    // --- Determine base path dynamically from build-time environment variable ---
+    // VITE_APP_BASE is set by the build script (e.g., /public/ or /testing/)
+    const dynamicPrefix = React.useMemo(() => {
+      return (import.meta as any).env.VITE_APP_BASE || ''; // Fallback to empty string if not set
     }, []);
 
     // --- Hardcoded Applications (from original index.php) ---

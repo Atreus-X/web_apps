@@ -402,6 +402,9 @@
     // --- PocketBase Init ---
     const PB_URL = window.location.origin + "/pocketbase";
 
+    // Debugging PB_URL
+    document.body.insertAdjacentHTML('beforeend', '<div style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; border-radius: 3px; font-size: 10px; z-index: 9999;">PB_URL: ' + PB_URL + '</div>');
+
     function initPocketBase() {
         try {
             pb = new PocketBase(PB_URL);

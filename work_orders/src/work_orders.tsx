@@ -39,7 +39,6 @@ import {
 import PocketBase from 'pocketbase';
 
 // --- Configuration ---
-const PB_URL = (import.meta as any).env.VITE_PB_URL;
 const COLLECTION_NAME = 'work_orders';
 
 // --- Types & Interfaces ---
