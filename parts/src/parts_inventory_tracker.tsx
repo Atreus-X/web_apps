@@ -1594,9 +1594,6 @@ function PartsInventoryTrackerInner({ pb }: { pb: any }) {
                       Connected to {PB_URL}
                   </div>
               </div>
-              <div className="text-xs text-gray-500 ml-2">
-                  Base: {(import.meta as any).env.VITE_APP_BASE || '/ (root)'}
-              </div>
               {user?.email}
           </div>
       </footer>

@@ -1576,8 +1576,15 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
               Connected to {PB_URL}
             </div>
           </div>
+          {/* User Profile */}
+          <div className="flex items-center gap-2 pl-2">
+            <div className="text-right hidden md:block">
+              <div className="text-xs font-bold text-slate-700">{user?.name || user?.email || 'User'}</div>
+              <div className="text-[10px] text-slate-500 uppercase">{user?.role || 'user'}</div>
+            </div>
+          </div>
           <div className="text-xs text-gray-500 ml-2">
-              Base: {(import.meta as any).env.VITE_APP_BASE || '/ (root)'}
+              Allowed: {appSettings?.allowed_roles_projects_manager?.join(', ') || 'N/A'} (Access: {String(hasRequiredRole)})
           </div>
           {currentUser}
         </div>
