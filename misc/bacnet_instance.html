@@ -102,8 +102,8 @@
     const bCode = document.getElementById('bldgCode');
     const gTrunk = document.getElementById('globalTrunk');
     const tbody = document.getElementById('tableBody');
-    
-    const PB_URL = "https://wchrestay-ubuntu.lan.local.cmu.edu/pocketbase";
+
+    const PB_URL = window.location.origin + "/pocketbase";
     const pb = new PocketBase(PB_URL);
 
     async function loadBuildings() {

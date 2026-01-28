@@ -31,7 +31,8 @@
   // --- Types ---
   interface AppItem {
     name: string;
-    appRelativePath: string; // Stores the path relative to the dynamic prefix (e.g., /misc/bacnet_instance.html)
+    targetPath: string; // The path component, e.g., 'misc/bacnet_instance.html' or 'parts/'
+    isRootRelative: boolean; // True if the app is always served from the domain root (e.g., /misc/), false if it follows the portal's dynamic prefix (e.g., /public/parts/)
     icon: React.ComponentType<any>;
     color: string;
     desc: string;
@@ -105,7 +106,7 @@
     const [isPosting, setIsPosting] = useState(false);
 
     // --- Determine base path dynamically ---
-    const dynamicPrefix = React.useMemo(() => {
+    const dynamicPrefix = React.useMemo(() => { // This prefix is for applications that are deployed relative to the portal's base
       const pathname = window.location.pathname;
       // Split by '/' and find 'portal'
       const pathSegments = pathname.split('/').filter(s => s !== ''); // Remove empty strings from split
@@ -122,12 +123,12 @@
     // --- Hardcoded Applications (from original index.php) ---
     useEffect(() => {
       setApps([
-      { name: 'BACnet Instances', appRelativePath: '/misc/bacnet_instance.html', icon: Network, color: 'bg-violet-500', desc: 'BACnet Instances' },
-      { name: 'BAS Hourly Logs', appRelativePath: '/misc/bas_hour_tracking.php', icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' },
-      { name: 'HVAC Analysis', appRelativePath: '/misc/hvac_analysis.html', icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
-      { name: 'Parts Inventory', appRelativePath: '/parts/', icon: Briefcase, color: 'bg-emerald-500', desc: 'Parts Inventory Tracker' },    
-      { name: 'Projects Manager', appRelativePath: '/projects/', icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
-      { name: 'Work Orders Tracker', appRelativePath: '/work_orders/', icon: Copy, color: 'bg-red-600', desc: 'Work Orders Tracker' },
+        { name: 'BACnet Instances', targetPath: 'misc/bacnet_instance.html', isRootRelative: true, icon: Network, color: 'bg-violet-500', desc: 'BACnet Instances' },
+        { name: 'BAS Hourly Logs', targetPath: 'misc/bas_hour_tracking.php', isRootRelative: true, icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' },
+        { name: 'HVAC Analysis', targetPath: 'misc/hvac_analysis.html', isRootRelative: true, icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
+        { name: 'Parts Inventory', targetPath: 'parts/', isRootRelative: false, icon: Briefcase, color: 'bg-emerald-500', desc: 'Parts Inventory Tracker' },    
+        { name: 'Projects Manager', targetPath: 'projects/', isRootRelative: false, icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
+        { name: 'Work Orders Tracker', targetPath: 'work_orders/', isRootRelative: false, icon: Copy, color: 'bg-red-600', desc: 'Work Orders Tracker' },
       ]);
     }, []);
 
@@ -315,7 +316,7 @@
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 font-mono">Pinned Applications</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
             {apps.map((app) => ( // Construct the href using the dynamicPrefix
-              <a key={app.name} href={`${dynamicPrefix}${app.appRelativePath}`} className="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-all">
+              <a key={app.name} href={app.isRootRelative ? `/${app.targetPath}` : `${dynamicPrefix}/${app.targetPath}`} className="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-all">
                 <div className={`${app.color} w-10 h-10 rounded-lg flex items-center justify-center text-white mb-3 group-hover:scale-110 transition-transform`}>
                   <app.icon className="w-5 h-5" />
                 </div>
