@@ -106,9 +106,11 @@
     const [isPosting, setIsPosting] = useState(false);
 
     // --- Determine base path dynamically from build-time environment variable ---
-    // VITE_APP_BASE is set by the build script (e.g., /public/ or /testing/)
+    // VITE_APP_BASE is set by the build script (e.g., /public/ or /testing/).
+    // We ensure dynamicPrefix does NOT have a trailing slash for correct concatenation.
     const dynamicPrefix = React.useMemo(() => {
-      return (import.meta as any).env.VITE_APP_BASE || ''; // Fallback to empty string if not set
+      const base = (import.meta as any).env.VITE_APP_BASE || '';
+      return base.endsWith('/') ? base.slice(0, -1) : base; // Remove trailing slash
     }, []);
 
     // --- Hardcoded Applications (from original index.php) ---
