@@ -106,8 +106,8 @@
     const [isPosting, setIsPosting] = useState(false);
 
     // --- Determine base path dynamically from build-time environment variable ---
-    // VITE_APP_BASE is set by the build script (e.g., /public/ or /testing/).
-    // We ensure dynamicPrefix does NOT have a trailing slash for correct concatenation.
+    // VITE_APP_BASE for the portal is set by the build script (e.g., /public/ or /testing/).
+    // We ensure dynamicPrefix does NOT have a trailing slash for correct concatenation with targetPath.
     const dynamicPrefix = React.useMemo(() => {
       const base = (import.meta as any).env.VITE_APP_BASE || '';
       return base.endsWith('/') ? base.slice(0, -1) : base; // Remove trailing slash
@@ -116,9 +116,9 @@
     // --- Hardcoded Applications (from original index.php) ---
     useEffect(() => {
       setApps([
-        { name: 'BACnet Instances', targetPath: 'misc/bacnet_instance.html', isRootRelative: true, icon: Network, color: 'bg-violet-500', desc: 'BACnet Instances' },
-        { name: 'BAS Hourly Logs', targetPath: 'misc/bas_hour_tracking.php', isRootRelative: true, icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' },
-        { name: 'HVAC Analysis', targetPath: 'misc/hvac_analysis.html', isRootRelative: true, icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
+        { name: 'BACnet Instances', targetPath: 'misc/bacnet_instance.html', isRootRelative: false, icon: Network, color: 'bg-violet-500', desc: 'BACnet Instances' },
+        { name: 'BAS Hourly Logs', targetPath: 'misc/bas_hour_tracking.php', isRootRelative: false, icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' },
+        { name: 'HVAC Analysis', targetPath: 'misc/hvac_analysis.html', isRootRelative: false, icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
         { name: 'Parts Inventory', targetPath: 'parts/', isRootRelative: false, icon: Briefcase, color: 'bg-emerald-500', desc: 'Parts Inventory Tracker' },    
         { name: 'Projects Manager', targetPath: 'projects/', isRootRelative: false, icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
         { name: 'Work Orders Tracker', targetPath: 'work_orders/', isRootRelative: false, icon: Copy, color: 'bg-red-600', desc: 'Work Orders Tracker' },
@@ -370,6 +370,9 @@
               <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded whitespace-nowrap">
                 Connected to {PB_URL}
               </div>
+            </div>
+            <div className="text-xs text-gray-500 ml-2">
+                Base: {dynamicPrefix || '/ (root)'}
             </div>
             {currentUser}
           </div>

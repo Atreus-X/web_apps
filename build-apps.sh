@@ -127,8 +127,11 @@ for APP in "${TARGETS[@]}"; do
     sudo rm -rf dist
 
     echo "📦 Building project inside Docker (Node 20)..."
-    # Inject both VITE_APP_BASE and VITE_PB_URL into the build process
-    if ! docker run --rm -e VITE_APP_BASE="$WEB_BASE_URL" -e VITE_PB_URL="$PB_URL" -v "$PWD":/app -w /app node:20 /bin/sh -c "npm install && npm run build"; then
+    # Construct the correct VITE_APP_BASE for the sub-application.
+    # For the portal itself (REL_DEST="."), VITE_APP_BASE will be $WEB_BASE_URL (e.g., /public/).
+    # For other apps (e.g., parts, projects), it will be $WEB_BASE_URL/app_name/ (e.g., /public/parts/).
+    APP_SPECIFIC_VITE_APP_BASE="${WEB_BASE_URL}${REL_DEST}/"
+    if ! docker run --rm -e VITE_APP_BASE="$APP_SPECIFIC_VITE_APP_BASE" -e VITE_PB_URL="$PB_URL" -v "$PWD":/app -w /app node:20 /bin/sh -c "npm install && npm run build"; then
         echo "❌ BUILD FAILED for $APP"
         if [ "$IS_BATCH_MODE" = false ]; then
             echo "⛔ Stopping execution due to build failure in manual mode."
@@ -253,7 +256,7 @@ deploy_file() {
 }
 
 # 5A. Public Index -> /opt/apache/www/public/index.php
-deploy_file "$INDEX_SOURCE_DIR/$FILE_PUBLIC_PHP" "/opt/apache/www/public/index.php"
+#deploy_file "$INDEX_SOURCE_DIR/$FILE_PUBLIC_PHP" "/opt/apache/www/public/index.php"
 
 # 5B. Root Index -> /opt/apache/www/index.php
 deploy_file "$INDEX_SOURCE_DIR/$FILE_WWW_PHP" "/opt/apache/www/index.php"
