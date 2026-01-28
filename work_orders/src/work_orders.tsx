@@ -544,7 +544,9 @@ function WorkOrderManagerInner({ pb }: { pb: any }) {
   useEffect(() => {
     if (user && user.approved !== false && hasRequiredRole) {
         loadData();
-  }, [user]);
+    }
+  }, [user, hasRequiredRole]); // Added hasRequiredRole to dependencies
+
 
   const loadData = async () => {
     setIsLoading(true);
