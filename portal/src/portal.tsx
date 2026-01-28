@@ -104,6 +104,21 @@
     const [newUpdate, setNewUpdate] = useState('');
     const [isPosting, setIsPosting] = useState(false);
 
+    // --- Determine base path dynamically ---
+    const dynamicPrefix = React.useMemo(() => {
+      const pathname = window.location.pathname;
+      // Split by '/' and find 'portal'
+      const pathSegments = pathname.split('/').filter(s => s !== ''); // Remove empty strings from split
+      const portalIndex = pathSegments.indexOf('portal');
+  
+      if (portalIndex > 0) {
+        // The dynamic prefix is the segment before 'portal' (e.g., /public, /testing)
+        return '/' + pathSegments.slice(0, portalIndex).join('/');
+      }
+      // If 'portal' is the first segment or not found, assume no prefix (root)
+      return '';
+    }, []);
+
     // --- Hardcoded Applications (from original index.php) ---
     useEffect(() => {
       setApps([
