@@ -31,7 +31,7 @@
   // --- Types ---
   interface AppItem {
     name: string;
-    url: string;
+    appRelativePath: string; // Stores the path relative to the dynamic prefix (e.g., /misc/bacnet_instance.html)
     icon: React.ComponentType<any>;
     color: string;
     desc: string;
@@ -107,12 +107,12 @@
     // --- Hardcoded Applications (from original index.php) ---
     useEffect(() => {
       setApps([
-        { name: 'BACnet Instances', url: '/public/misc/bacnet_instance.html', icon: Network, color: 'bg-violet-500', desc: 'BACnet Instances' },
-        { name: 'BAS Hourly Logs', url: '/public/misc/bas_hour_tracking.php', icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' },
-        { name: 'HVAC Analysis', url: '/public/misc/hvac_analysis.html', icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
-        { name: 'Parts Inventory', url: '/public/parts/', icon: Briefcase, color: 'bg-emerald-500', desc: 'Parts Inventory Tracker' },    
-        { name: 'Projects Manager', url: '/public/projects/', icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
-        { name: 'Work Orders Tracker', url: '/public/work_orders/', icon: Copy, color: 'bg-red-600', desc: 'Work Orders Tracker' },
+      { name: 'BACnet Instances', appRelativePath: '/misc/bacnet_instance.html', icon: Network, color: 'bg-violet-500', desc: 'BACnet Instances' },
+      { name: 'BAS Hourly Logs', appRelativePath: '/misc/bas_hour_tracking.php', icon: ClockIcon, color: 'bg-indigo-500', desc: 'BAS Hourly logs' },
+      { name: 'HVAC Analysis', appRelativePath: '/misc/hvac_analysis.html', icon: Thermometer, color: 'bg-orange-500', desc: 'HVAC Analysis' },    
+      { name: 'Parts Inventory', appRelativePath: '/parts/', icon: Briefcase, color: 'bg-emerald-500', desc: 'Parts Inventory Tracker' },    
+      { name: 'Projects Manager', appRelativePath: '/projects/', icon: Workflow, color: 'bg-sky-500', desc: 'Project Manager' },
+      { name: 'Work Orders Tracker', appRelativePath: '/work_orders/', icon: Copy, color: 'bg-red-600', desc: 'Work Orders Tracker' },
       ]);
     }, []);
 
@@ -299,8 +299,8 @@
         <main className="container mx-auto px-6 py-10">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 font-mono">Pinned Applications</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
-            {apps.map((app) => (
-              <a key={app.name} href={app.url} className="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-all">
+            {apps.map((app) => ( // Construct the href using the dynamicPrefix
+              <a key={app.name} href={`${dynamicPrefix}${app.appRelativePath}`} className="group bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-all">
                 <div className={`${app.color} w-10 h-10 rounded-lg flex items-center justify-center text-white mb-3 group-hover:scale-110 transition-transform`}>
                   <app.icon className="w-5 h-5" />
                 </div>
