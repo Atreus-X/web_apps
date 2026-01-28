@@ -351,12 +351,52 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   const [isSaving, setIsSaving] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // --- App Settings State ---
+  const [appSettings, setAppSettings] = useState<any>(null);
+  const [appSettingsLoading, setAppSettingsLoading] = useState<boolean>(true);
 
   // Derived state for dropdowns (Responsibility)
   const uniqueResponsibilities = useMemo(() => {
     const items = new Set(projects.map(p => p.responsibility).filter(Boolean));
     return Array.from(items).sort();
   }, [projects]);
+
+  // --- Fetch app_settings from PocketBase ---
+  useEffect(() => {
+    // Only fetch settings once pb is ready
+    const fetchSettings = async () => {
+      setAppSettingsLoading(true);
+      try {
+        const settings = await pb
+          .collection("app_settings")
+          .getList(1, 1); // Assumes only one settings record
+        // If you know the record ID, you may use getOne instead
+        setAppSettings(settings.items[0] || null);
+      } catch (err) {
+        console.error("Error loading app_settings:", err);
+        setAppSettings(null);
+      } finally {
+        setAppSettingsLoading(false);
+      }
+    };
+    fetchSettings();
+  }, [pb]);
+
+  // --- Compute if user has required role ---
+  const hasRequiredRole = useMemo(() => {
+    if (appSettingsLoading) return null; // Still loading
+    if (!user || !appSettings) return false; // Not logged in or settings not loaded
+  
+    const allowedRoles = Array.isArray(appSettings.allowed_roles_projects_manager)
+      ? appSettings.allowed_roles_projects_manager
+      : [];
+  
+    const userRole = user.role;
+    if (!userRole) return false; // User has no role defined
+  
+    return allowedRoles.includes(userRole);
+  }, [user, appSettings, appSettingsLoading]);
 
   // Derived state for Header Summary
   const statusCounts = useMemo(() => {
@@ -408,7 +448,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   }, [user, pb]);
 
   useEffect(() => {
-    if (user && user.approved !== false && pb) { // Ensure pb is initialized
+    if (user && user.approved !== false && pb && hasRequiredRole) { // Ensure pb is initialized and user has role
         loadData();
     }
   }, [user, pb]);
@@ -790,6 +830,21 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
             )}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // --- Role-based Access Restriction ---
+  if (appSettingsLoading) {
+    return (
+      <div className="p-8 text-center">Loading permissions…</div>
+    );
+  }
+  
+  if (hasRequiredRole === false) {
+    return (
+      <div className="p-8 text-center text-red-600">
+        <h2>Access Denied</h2><p>Your account does not have permission to view this application.</p>
       </div>
     );
   }
