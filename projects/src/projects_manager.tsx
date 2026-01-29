@@ -1010,11 +1010,12 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
             
             <div className="h-8 w-px bg-slate-200 mx-1" />
 
-            {/* User Profile */}
-            {currentUser ? (
-               <div className="flex items-center gap-3 pl-2">
+            {/* User Menu */}
+            {user ? (
+               <div className="flex items-center gap-3 pl-2 border-l ml-1">
                  <div className="text-right hidden md:block">
-                   <div className="text-xs font-bold text-slate-700 max-w-[150px] truncate">{currentUser}</div>
+                   <div className="text-xs font-bold text-slate-700 max-w-[150px] truncate">{user.name || user.email}</div>
+                   <div className="text-[10px] text-slate-500 uppercase">{user.role || 'user'}</div>
                  </div>
                  <button 
                    onClick={handleLogout}
@@ -1023,7 +1024,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                  >
                    <LogOut className="w-5 h-5" />
                  </button>
-               </div>
             ) : (
               <div className="text-xs text-slate-400 italic px-2">Not logged in</div>
             )}

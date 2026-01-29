@@ -372,14 +372,15 @@
                 Connected to {PB_URL}
               </div>
             </div>
-            {/* User Profile */}
-            <div className="flex items-center gap-2 pl-2">
+            {/* User Menu */}
+            <div className="flex items-center gap-2 px-2 border-l ml-1">
               <div className="text-right hidden md:block">
-                <div className="text-xs font-bold text-slate-700">{user?.name || user?.email || 'User'}</div>
+                <div className="text-xs font-bold text-slate-700">{user?.name || user?.email}</div>
                 <div className="text-[10px] text-slate-500 uppercase">{user?.role || 'user'}</div>
               </div>
+              <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Logout"><LogOut className="w-5 h-5" /></button>
             </div>
-            {currentUser}
+            {user?.email}
           </div>
         </footer>
       </div>
