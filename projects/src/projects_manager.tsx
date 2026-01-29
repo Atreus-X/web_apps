@@ -93,6 +93,7 @@ interface Project {
   completion_date: string;
   last_modified_by: string;
   last_modified_at: string;
+  updates_log?: ProjectUpdateLogEntry[]; // NEW FIELD
 }
 
 interface BuildingInfo {
@@ -105,6 +106,12 @@ interface BuildingInfo {
   bldg_number?: string;
 }
 
+// NEW: Interface for a single log entry
+interface ProjectUpdateLogEntry {
+  date: string; // ISO string (e.g., "2023-10-27T10:00:00.000Z")
+  update: string;
+  user: string;
+}
 // --- Components ---
 
 const getAvatarColor = (name: string) => {
@@ -351,6 +358,10 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   const [isSaving, setIsSaving] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // NEW: State for adding new log entries
+  const [newLogUpdate, setNewLogUpdate] = useState('');
+  const [newLogDateInput, setNewLogDateInput] = useState(new Date().toISOString().split('T')[0]); // Default to today in YYYY-MM-DD format
   
   // --- App Settings State ---
   const [appSettings, setAppSettings] = useState<any>(null);
@@ -477,7 +488,8 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
         target_start_date: r.target_start_date ? r.target_start_date.split(/[T ]/)[0] : '', 
         completion_date: r.completion_date ? r.completion_date.split(/[T ]/)[0] : '',
         last_modified_by: r.last_modified_by || 'System',
-        last_modified_at: r.updated || ''
+        last_modified_at: r.updated || '',
+        updates_log: r.updates_log || []
       }));
       setProjects(mapped);
 
@@ -594,11 +606,16 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
         return 0;
       }
 
-      const valA = a[sortField];
-      const valB = b[sortField];
-      if (Array.isArray(valA)) return 0; 
-      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      // Get values, ensuring they are not undefined.
+      // For array fields, join them into a string for comparison.
+      const rawValA = a[sortField];
+      const rawValB = b[sortField];
+
+      const comparableA = (Array.isArray(rawValA) ? rawValA.join(', ') : String(rawValA || '')).toLowerCase();
+      const comparableB = (Array.isArray(rawValB) ? rawValB.join(', ') : String(rawValB || '')).toLowerCase();
+
+      if (comparableA < comparableB) return sortDir === 'asc' ? -1 : 1;
+      if (comparableA > comparableB) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
 
@@ -773,7 +790,8 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
       target_start_date: new Date().toISOString().split('T')[0],
       completion_date: '',
       last_modified_by: currentUser || 'Unknown',
-      last_modified_at: new Date().toISOString()
+      last_modified_at: new Date().toISOString(),
+      updates_log: [] // Initialize new field for new projects
     });
     setIsEditing(true);
     setShowModal(true);
@@ -781,16 +799,20 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
 
   // --- Auth Screen ---
   if (!user || user.approved === false) {
-     return (
+    return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="flex justify-center text-indigo-600"><ClipboardList className="w-12 h-12" /></div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Projects Login</h2>
+          <div className="flex justify-center text-indigo-600">
+            <ClipboardList className="w-12 h-12" />
+          </div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Projects Login
+          </h2>
         </div>
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
             {user && user.approved === false ? (
-               <div className="text-center">
+              <div className="text-center">
                   <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4"><Clock className="h-6 w-6 text-yellow-600" /></div>
                   <h3 className="text-lg leading-6 font-medium text-gray-900">Approval Pending</h3>
                   <button onClick={handleLogout} className="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Sign Out</button>
@@ -886,6 +908,24 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
     }
 
     setSelectedIds(newSelected);
+  };
+
+  // NEW: Handler for adding a new log entry
+  const handleAddLogEntry = () => {
+    if (!newLogUpdate.trim() || !selectedProject || !currentUser) return;
+
+    const newEntry: ProjectUpdateLogEntry = {
+      date: new Date(newLogDateInput).toISOString(), // Convert to ISO string for storage
+      update: newLogUpdate.trim(),
+      user: currentUser,
+    };
+
+    setSelectedProject(prev => ({
+      ...prev!,
+      updates_log: [...(prev?.updates_log || []), newEntry]
+    }));
+    setNewLogUpdate('');
+    setNewLogDateInput(new Date().toISOString().split('T')[0]); // Reset date input to today
   };
 
   const handleBulkEdit = async (updates: Partial<Project>) => {
@@ -1510,6 +1550,69 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                         <p>{selectedProject.comments || "No comments."}</p>
                       </div>
                     )}
+                  </div>
+
+                  {/* NEW: Updates Log Section */}
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mt-6">Updates Log</h3>
+                    <div className="space-y-4">
+                      {/* Input for new log entry */}
+                      {isEditing && (
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                          <label className="text-xs font-semibold text-slate-500 block mb-1">Add New Update</label>
+                          <input
+                            type="date"
+                            className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 text-sm mb-2"
+                            value={newLogDateInput}
+                            onChange={e => setNewLogDateInput(e.target.value)}
+                          />
+                          <textarea
+                            className="w-full text-slate-700 bg-white p-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm mb-2"
+                            rows={3}
+                            value={newLogUpdate}
+                            onChange={e => setNewLogUpdate(e.target.value)}
+                            placeholder="Enter update details..."
+                          />
+                          <div className="text-xs text-slate-500 mb-2">Logged by: {currentUser}</div>
+                          <button
+                            type="button"
+                            onClick={handleAddLogEntry}
+                            disabled={!newLogUpdate.trim()}
+                            className="w-full px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-sm transition-colors text-sm disabled:opacity-50"
+                          >
+                            Add Log Entry
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Display existing log entries */}
+                      {selectedProject.updates_log && selectedProject.updates_log.length > 0 ? (
+                        <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg">
+                          <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50 sticky top-0">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Update</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-100">
+                              {[...selectedProject.updates_log].reverse().map((entry, index) => ( // Reverse to show newest first
+                                <tr key={index}>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-800">
+                                    {new Date(entry.date).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-slate-600">{entry.update}</td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-600">{entry.user}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="text-center text-slate-400 text-sm py-4">No updates logged yet.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
