@@ -93,7 +93,15 @@ interface Project {
   completion_date: string;
   last_modified_by: string;
   last_modified_at: string;
+  associated_people?: AssociatedPerson[]; // NEW FIELD
   updates_log?: ProjectUpdateLogEntry[]; // NEW FIELD
+}
+
+// NEW: Interface for an associated person
+interface AssociatedPerson {
+  title: string;
+  name: string;
+  phone: string;
 }
 
 interface BuildingInfo {
@@ -362,6 +370,11 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
   // NEW: State for adding new log entries
   const [newLogUpdate, setNewLogUpdate] = useState('');
   const [newLogDateInput, setNewLogDateInput] = useState(new Date().toISOString().split('T')[0]); // Default to today in YYYY-MM-DD format
+
+  // NEW: State for adding new associated people
+  const [newAssocPersonTitle, setNewAssocPersonTitle] = useState('');
+  const [newAssocPersonName, setNewAssocPersonName] = useState('');
+  const [newAssocPersonPhone, setNewAssocPersonPhone] = useState('');
   
   // --- App Settings State ---
   const [appSettings, setAppSettings] = useState<any>(null);
@@ -488,7 +501,8 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
         target_start_date: r.target_start_date ? r.target_start_date.split(/[T ]/)[0] : '', 
         completion_date: r.completion_date ? r.completion_date.split(/[T ]/)[0] : '',
         last_modified_by: r.last_modified_by || 'System',
-        last_modified_at: r.updated || '',
+        last_modified_at: r.updated || '', // PocketBase 'updated' field
+        associated_people: r.associated_people || [], // Initialize new field
         updates_log: r.updates_log || []
       }));
       setProjects(mapped);
@@ -790,7 +804,8 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
       target_start_date: new Date().toISOString().split('T')[0],
       completion_date: '',
       last_modified_by: currentUser || 'Unknown',
-      last_modified_at: new Date().toISOString(),
+      last_modified_at: new Date().toISOString(), // Use current date for new project
+      associated_people: [], // Initialize new field for new projects
       updates_log: [] // Initialize new field for new projects
     });
     setIsEditing(true);
@@ -909,6 +924,34 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
 
     setSelectedIds(newSelected);
   };
+
+  // NEW: Handler for adding a new associated person
+  const handleAddAssociatedPerson = () => {
+    if (!newAssocPersonName.trim() || !selectedProject) return;
+
+    const newEntry: AssociatedPerson = {
+      title: newAssocPersonTitle.trim(),
+      name: newAssocPersonName.trim(),
+      phone: newAssocPersonPhone.trim(),
+    };
+
+    setSelectedProject(prev => ({
+      ...prev!,
+      associated_people: [...(prev?.associated_people || []), newEntry]
+    }));
+    setNewAssocPersonTitle('');
+    setNewAssocPersonName('');
+    setNewAssocPersonPhone('');
+  };
+
+  // NEW: Handler for removing an associated person
+  const handleRemoveAssociatedPerson = (indexToRemove: number) => {
+    setSelectedProject(prev => ({
+      ...prev!, // Ensure prev is not null
+      associated_people: prev!.associated_people?.filter((_person: AssociatedPerson, index: number) => index !== indexToRemove) || []
+    }));
+  };
+
 
   // NEW: Handler for adding a new log entry
   const handleAddLogEntry = () => {
@@ -1325,8 +1368,8 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
             </div>
 
             {/* Modal Body */}
-            <div className="p-8 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="p-6 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 
                 {/* --- Column 1: Core Info --- */}
                 <div className="space-y-6">
@@ -1348,24 +1391,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Fiscal Year</label>
-                    {isEditing ? (
-                      <input 
-                        type="text" 
-                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={selectedProject.fiscal_year}
-                        onChange={e => setSelectedProject({...selectedProject, fiscal_year: e.target.value})}
-                        placeholder="e.g. FY25"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-2 text-slate-800">
-                        <CalendarDays className="w-4 h-4 text-slate-400" />
-                        {selectedProject.fiscal_year || <span className="text-slate-300">-</span>}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Priority</label>
                     {isEditing ? (
                       <select 
@@ -1380,24 +1405,6 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                       </select>
                     ) : (
                       <PriorityBadge priority={selectedProject.priority} />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Building</label>
-                    {isEditing ? (
-                      <MultiInput 
-                        values={selectedProject.building} 
-                        onChange={v => setSelectedProject({...selectedProject, building: v})} 
-                        placeholder="Add Building"
-                        list={buildings.map(b => b.bldg_name)}
-                      />
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {selectedProject.building.map((b, i) => (
-                          <BuildingTooltip key={i} name={b} buildings={buildings} />
-                        ))}
-                      </div>
                     )}
                   </div>
 
@@ -1424,11 +1431,103 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                       </div>
                     )}
                   </div>
-                </div>
+                
+                  {/* Associated People Table */}
+                  <div className="space-y-6">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Associated People</h3>
+                    <div className="space-y-4">
+                      {/* Input for new associated person */}
+                      {isEditing && (
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                          <label className="text-xs font-semibold text-slate-500 block mb-1">Add New Person</label>
+                          <input
+                            type="text"
+                            className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 text-sm mb-2"
+                            value={newAssocPersonTitle}
+                            onChange={e => setNewAssocPersonTitle(e.target.value)}
+                            placeholder="Title (e.g., Project Manager)"
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 text-sm mb-2"
+                            value={newAssocPersonName}
+                            onChange={e => setNewAssocPersonName(e.target.value)}
+                            placeholder="Name (e.g., John Doe)"
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 text-sm mb-2"
+                            value={newAssocPersonPhone}
+                            onChange={e => setNewAssocPersonPhone(e.target.value)}
+                            placeholder="Phone (optional)"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddAssociatedPerson}
+                            disabled={!newAssocPersonName.trim()}
+                            className="w-full px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-sm transition-colors text-sm disabled:opacity-50"
+                          >
+                            Add Person
+                          </button>
+                        </div>
+                      )}
 
-                {/* --- Column 2: Execution --- */}
+                      {/* Display existing associated people */}
+                      {selectedProject.associated_people && selectedProject.associated_people.length > 0 ? (
+                        <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg">
+                          <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50 sticky top-0">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Title</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone</th>
+                                {isEditing && <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"></th>}
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-100">
+                              {selectedProject.associated_people.map((person: AssociatedPerson, index: number) => (
+                                <tr key={index}>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-800">{person.title || '-'}</td>
+                                  <td className="px-4 py-2 text-sm text-slate-600">{person.name}</td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-600">{person.phone || '-'}</td>
+                                  {isEditing && (
+                                    <td className="px-4 py-2">
+                                      <button onClick={() => handleRemoveAssociatedPerson(index)} className="text-red-500 hover:text-red-700"><X className="w-4 h-4" /></button>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="text-center text-slate-400 text-sm py-4">No associated people.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* --- Column 2: Building, Vendor, Contractors, Work Orders --- */}
                 <div className="space-y-6">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Execution</h3>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Project Scope</h3>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Building</label>
+                    {isEditing ? (
+                      <MultiInput 
+                        values={selectedProject.building} 
+                        onChange={v => setSelectedProject({...selectedProject, building: v})} 
+                        placeholder="Add Building"
+                        list={buildings.map(b => b.bldg_name)}
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {selectedProject.building.map((b, i) => (
+                          <BuildingTooltip key={i} name={b} buildings={buildings} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Vendor</label>
@@ -1484,41 +1583,81 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
                   </div>
                 </div>
 
-                {/* --- Column 3: Dates & Description --- */}
+                {/* --- Column 3: Fiscal Year, Target Start, Completion --- */}
+                <div className="space-y-6">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Timeline</h3>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Fiscal Year</label>
+                    {isEditing ? (
+                      <input 
+                        type="text" 
+                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selectedProject.fiscal_year}
+                        onChange={e => setSelectedProject({...selectedProject, fiscal_year: e.target.value})}
+                        placeholder="e.g. FY25"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 text-slate-800">
+                        <CalendarDays className="w-4 h-4 text-slate-400" />
+                        {selectedProject.fiscal_year || <span className="text-slate-300">-</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Target Start</label>
+                    {isEditing ? (
+                      <input 
+                        type="date" 
+                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selectedProject.target_start_date}
+                        onChange={e => setSelectedProject({...selectedProject, target_start_date: e.target.value})}
+                      />
+                    ) : (
+                      <div className="text-sm text-slate-800">{selectedProject.target_start_date || '-'}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Completion</label>
+                    {isEditing ? (
+                      <input 
+                        type="date" 
+                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selectedProject.completion_date}
+                        onChange={e => setSelectedProject({...selectedProject, completion_date: e.target.value})}
+                      />
+                    ) : (
+                      <div className="text-sm text-slate-800 flex items-center gap-2 h-9">
+                        {selectedProject.completion_date || <span className="text-slate-400 italic">Pending</span>}
+                        {selectedProject.completion_date && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Priority</label>
+                    {isEditing ? (
+                      <select 
+                        className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selectedProject.priority}
+                        onChange={e => setSelectedProject({...selectedProject, priority: e.target.value as PriorityLevel})}
+                      >
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                        <option>Critical</option>
+                      </select>
+                    ) : (
+                      <PriorityBadge priority={selectedProject.priority} />
+                    )}
+                  </div>
+
+                </div>
+
+                {/* --- Column 4: Description, Comments, Updates Log --- */}
                 <div className="space-y-6">
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Timeline & Notes</h3>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 block mb-1">Target Start</label>
-                      {isEditing ? (
-                        <input 
-                          type="date" 
-                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                          value={selectedProject.target_start_date}
-                          onChange={e => setSelectedProject({...selectedProject, target_start_date: e.target.value})}
-                        />
-                      ) : (
-                        <div className="text-sm text-slate-800">{selectedProject.target_start_date || '-'}</div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 block mb-1">Completion</label>
-                      {isEditing ? (
-                        <input 
-                          type="date" 
-                          className="w-full p-2 bg-white border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                          value={selectedProject.completion_date}
-                          onChange={e => setSelectedProject({...selectedProject, completion_date: e.target.value})}
-                        />
-                      ) : (
-                        <div className="text-sm text-slate-800 flex items-center gap-2 h-9">
-                          {selectedProject.completion_date || <span className="text-slate-400 italic">Pending</span>}
-                          {selectedProject.completion_date && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Description</label>
