@@ -7,6 +7,7 @@ set -e
 # Format: "source_dir|relative_destination"
 # Use "." to indicate the root of the deployment folder
 declare -A APPS
+APPS["bas_dms"]="/home/wchrestay/web_apps/bas_dms|bas_dms"
 APPS["parts"]="/home/wchrestay/web_apps/parts|parts"
 APPS["portal"]="/home/wchrestay/web_apps/portal|." 
 APPS["projects"]="/home/wchrestay/web_apps/projects|projects"
