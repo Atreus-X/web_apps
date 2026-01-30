@@ -475,7 +475,7 @@ function ProjectsManagerInner({ pb }: { pb: any }) {
     if (user && user.approved !== false && pb && hasRequiredRole) { // Ensure pb is initialized and user has role
         loadData();
     }
-  }, [user, pb]);
+  }, [user, pb, hasRequiredRole]);
 
   const loadData = async () => {
     setIsLoading(true);
