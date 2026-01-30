@@ -1,0 +1,24 @@
+services:
+  apache-php:
+    image: php:8.2-apache
+    build: .
+    container_name: apache-php
+    restart: always
+    environment:
+      - PUID=0
+      - PGID=1001
+    volumes:
+      # Map your web files
+      - /opt/apache/www:/var/www/html
+      # Map your custom site configuration
+      - /opt/apache/config/site.conf:/etc/apache2/sites-available/000-default.conf:ro
+      # Map remote IP config to see real user IPs in logs
+      - /opt/apache/config/remoteip.conf:/etc/apache2/conf-available/remoteip.conf:ro
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+
+networks:
+  proxy:
+    external: true

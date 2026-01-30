@@ -1,0 +1,33 @@
+# /opt/traefik/traefik.yml
+# Main Traefik Static Configuration
+
+api:
+  dashboard: true
+  insecure: true # Enables the dashboard on port 8080
+
+entryPoints:
+  web:
+    address: ":80"
+    # Automatically redirect all HTTP traffic to HTTPS
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    # Note: 'version' key is removed in Traefik v3. 
+    # API version is now forced via DOCKER_API_VERSION in docker-compose.yml.
+    exposedByDefault: false
+    network: proxy
+  file:
+    directory: /etc/traefik/conf.d
+    watch: true
+
+log:
+  level: INFO

@@ -1,0 +1,43 @@
+http:
+  routers:
+    # ROUTER 1: Protected Dashboard (The Root Portal)
+    # Only the landing page requires SSO
+    apache-dashboard-router:
+      rule: "Host(`{{ env "HOSTNAME" }}`) && Path(`/`)"
+      entryPoints:
+        - websecure
+      tls: {}
+      service: apache-service
+      middlewares:
+        - global-slash-redirect@file
+        - auth-sso@file
+
+    # ROUTER 2: Public Files & Apps (No SSO)
+    # Covers /public/ and /public/parts/
+    apache-public-router:
+      rule: "Host(`{{ env "HOSTNAME" }}`) && PathPrefix(`/public`)"
+      entryPoints:
+        - websecure
+      tls: {}
+      service: apache-service
+      middlewares:
+        - global-slash-redirect@file
+        # No auth-sso here: everything in /public is open
+
+    # ROUTER 3: Testing Area (Requires SSO)
+    # Covers /testing/ and all sub-apps inside it
+    apache-testing-router:
+      rule: "Host(`{{ env "HOSTNAME" }}`) && PathPrefix(`/testing`)"
+      entryPoints:
+        - websecure
+      tls: {}
+      service: apache-service
+      middlewares:
+        - global-slash-redirect@file
+        - auth-sso@file
+
+  services:
+    apache-service:
+      loadBalancer:
+        servers:
+          - url: "http://apache-php:80"

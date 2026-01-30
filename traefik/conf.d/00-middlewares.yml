@@ -1,0 +1,18 @@
+http:
+  middlewares:
+    auth-sso:
+      forwardAuth:
+        # The environment variable is injected here using Go templating
+        address: "http://authelia:9091/authelia/api/verify?rd=https://{{ env "HOSTNAME" }}/authelia/"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "Remote-User"
+          - "Remote-Groups"
+          - "Remote-Name"
+          - "Remote-Email"
+
+    global-slash-redirect:
+      redirectRegex:
+        regex: "^(.*)/(filezilla|webmin|public|pocketbase|parts|monit|projects|work_orders|misc|testing|bas_dms)$"
+        replacement: "${1}/${2}/"
+        permanent: true
